@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, Download, Upload, RotateCcw } from "lucide-react";
+import LogoutButton from "./LogoutButton";
 import type { AppData } from "@/lib/types";
 
 interface HeaderProps {
@@ -89,6 +90,8 @@ export function Header({
           >
             <RotateCcw size={18} />
           </button>
+
+          <LogoutButton />
         </div>
       </div>
     </header>

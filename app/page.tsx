@@ -1,35 +1,40 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
-import { loadData, saveData } from "@/lib/storage";
+import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
 import type { AppData, Specialist, Trip } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
   const [loaded, setLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
-  // Загрузка из localStorage при монтировании
+  // Загрузка из Supabase при монтировании
   useEffect(() => {
-    setData(loadData());
-    setLoaded(true);
+    loadData()
+      .then((result) => {
+        setData(result);
+        setLoaded(true);
+      })
+      .catch((err) => {
+        console.error("Ошибка загрузки:", err);
+        setData(SEED_DATA);
+        setLoaded(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
-
-  // Сохранение при изменении
-  useEffect(() => {
-    if (loaded) {
-      saveData(data);
-    }
-  }, [data, loaded]);
 
   // Фильтрованные командировки
   const filteredTrips = useMemo(() => {
@@ -52,18 +57,29 @@ export default function Home() {
     return counts;
   }, [data.trips]);
 
-  const handleSaveTrip = (trip: Trip, newSpecialist?: Omit<Specialist, "color">) => {
-    setData((prev) => {
-      let specialists = prev.specialists;
-      if (newSpecialist && !specialists.find((s) => s.id === newSpecialist.id)) {
-        const colors = [
-          "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
-          "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
-        ];
-        const color = colors[specialists.length % colors.length];
-        specialists = [...specialists, { ...newSpecialist, color }];
-      }
+  const handleSaveTrip = useCallback(async (trip: Trip, newSpecialist?: Omit<Specialist, "color">) => {
+    let updatedSpecialists = data.specialists;
 
+    // Если новый специалист — добавляем
+    if (newSpecialist && !data.specialists.find((s) => s.id === newSpecialist.id)) {
+      const colors = [
+        "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
+        "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
+      ];
+      const color = colors[data.specialists.length % colors.length];
+      const specialist: Specialist = { ...newSpecialist, color };
+
+      // Сохраняем в Supabase
+      await saveSpecialist(specialist);
+
+      updatedSpecialists = [...data.specialists, specialist];
+    }
+
+    // Сохраняем командировку в Supabase
+    await saveTrip(trip);
+
+    // Обновляем локальное состояние
+    setData((prev) => {
       const existingIdx = prev.trips.findIndex((t) => t.id === trip.id);
       let trips: Trip[];
       if (existingIdx >= 0) {
@@ -73,16 +89,20 @@ export default function Home() {
         trips = [...prev.trips, trip];
       }
 
-      return { specialists, trips };
+      return { specialists: updatedSpecialists, trips };
     });
-  };
+  }, [data.specialists]);
 
-  const handleDeleteTrip = (tripId: string) => {
+  const handleDeleteTrip = useCallback(async (tripId: string) => {
+    // Удаляем из Supabase
+    await deleteTrip(tripId);
+
+    // Обновляем локальное состояние
     setData((prev) => ({
       ...prev,
       trips: prev.trips.filter((t) => t.id !== tripId),
     }));
-  };
+  }, []);
 
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -94,7 +114,7 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
-  const handleImport = () => {
+  const handleImport = async () => {
     try {
       const raw = localStorage.getItem("trip-schedule-import");
       if (!raw) return;
@@ -103,18 +123,28 @@ export default function Home() {
         alert("Неверный формат файла");
         return;
       }
+
+      // TODO: массовый импорт через Supabase
+      // Пока просто обновляем локальное состояние
       setData(imported);
       localStorage.removeItem("trip-schedule-import");
+      alert("Импорт завершён. Примечание: массовый импорт в Supabase ещё не реализован.");
     } catch (e) {
       alert("Ошибка импорта");
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    if (!confirm("Сбросить все данные к начальному состоянию? Это удалит все изменения в Supabase.")) {
+      return;
+    }
+
+    // TODO: очистить таблицы Supabase и перезалить сид-данные
     setData(SEED_DATA);
+    alert("Данные сброшены к начальному состоянию (только локально). Supabase не очищен.");
   };
 
-  if (!loaded) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-slate-400">Загрузка...</div>
