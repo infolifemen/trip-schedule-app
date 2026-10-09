@@ -37,3 +37,16 @@ next-env.d.ts
 # legacy
 /deps_installed/
 /.deps_installed
+
+# build logs (НЕ КОММИТИТЬ)
+build.log
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
