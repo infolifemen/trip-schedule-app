@@ -110,23 +110,6 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
-
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">
-                Тестовый доступ
-              </span>
-            </div>
-          </div>
-          <div className="mt-4 text-center text-sm text-gray-600">
-            <p>Email: <code className="bg-gray-100 px-2 py-1 rounded">admin@test.com</code></p>
-            <p className="mt-2">Пароль: <code className="bg-gray-100 px-2 py-1 rounded">test123456</code></p>
-          </div>
-        </div>
       </div>
     </div>
   )
