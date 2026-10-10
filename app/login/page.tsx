@@ -25,7 +25,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        // Мгновенный редирект через window.location
+        // Полная перезагрузка для надёжного редиректа
         window.location.href = '/'
       }
     } catch (err) {

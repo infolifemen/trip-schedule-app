@@ -19,6 +19,12 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
 
+# Редиректы для SPA (на случай если Next.js runtime не справится)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
 # Кэширование статики
 [[headers]]
   for = "/_next/static/*"
