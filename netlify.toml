@@ -5,10 +5,11 @@
   command = "npm run build"
   publish = ".next"
 
-# Next.js runtime — Netlify автоматически использует @netlify/plugin-nextjs
-# при обнаружении Next.js в зависимостях package.json
+# Netlify Next.js plugin — полноценная поддержка SSR, middleware, API routes
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
-# Заголовки безопасности (перенесены из vercel.json)
+# Заголовки безопасности
 [[headers]]
   for = "/*"
   [headers.values]
@@ -19,14 +20,14 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
 
-# Редиректы для SPA (на случай если Next.js runtime не справится)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Кэширование статики
+# Кэширование статики Next.js (агрессивное)
 [[headers]]
   for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Кэширование шрифтов
+[[headers]]
+  for = "/*.woff2"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
