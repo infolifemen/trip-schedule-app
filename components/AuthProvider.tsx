@@ -1,22 +1,18 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient, User } from '@supabase/supabase-js'
 
-// Singleton Supabase client — создаётся один раз
+// Singleton Supabase client
 let _supabaseClient: SupabaseClient | null = null
 
-export function getSupabaseClient(): SupabaseClient {
+function getSupabaseClient(): SupabaseClient {
   if (!_supabaseClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-    if (!url || !key) {
-      throw new Error('Supabase env vars не настроены')
-    }
-
+    if (!url || !key) throw new Error('Supabase env vars не настроены')
     _supabaseClient = createBrowserClient(url, key)
   }
   return _supabaseClient
@@ -44,37 +40,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = getSupabaseClient()
 
   useEffect(() => {
-    // Получаем текущую сессию
+    // На /login — пропускаем проверку авторизации (моментальная загрузка)
+    if (pathname === '/login') {
+      setLoading(false)
+      return
+    }
+
+    const supabase = getSupabaseClient()
+
+    // Timeout: если getSession не отвечает за 5 сек — продолжаем
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      console.warn('[AuthProvider] getSession timeout — продолжаем без сессии')
+    }, 5000)
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      clearTimeout(timeout)
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
       setLoading(false)
 
-      // Если не авторизован и не на /login — редирект
-      if (!session?.user && pathname !== '/login') {
+      // Редирект на /login если не авторизован
+      if (!currentUser) {
         router.replace('/login')
       }
+    }).catch((err) => {
+      clearTimeout(timeout)
+      console.error('[AuthProvider] getSession error:', err)
+      setLoading(false)
+      router.replace('/login')
     })
-
-    // Слушаем изменения авторизации
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
-
-        if (!session?.user && pathname !== '/login') {
-          router.replace('/login')
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
+  }, [pathname])
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      const supabase = getSupabaseClient()
+      await supabase.auth.signOut()
+    } catch (e) {
+      // ignore
+    }
     router.replace('/login')
   }
 

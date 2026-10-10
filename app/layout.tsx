@@ -21,12 +21,15 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        />
+        {/* System fonts — НЕ блокируют рендеринг */}
+        <style>{`
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+          }
+          code, pre {
+            font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Code", monospace;
+          }
+        `}</style>
       </head>
       <body className="antialiased" style={{ background: "#f0eeeb", color: "#1a1a2e" }}>
         <AuthProvider>
