@@ -1,20 +1,11 @@
-import type { AppData, Specialist, Trip } from "./types";
+import type { AppData, Specialist, Trip, ServiceMarker } from "./types";
 
-// Цветовая палитра для специалистов
+// Цветовая палитра для специалистов (используется только для фильтров)
 const COLORS = [
-  "#3b82f6", // blue
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#f59e0b", // amber
-  "#10b981", // emerald
-  "#06b6d4", // cyan
-  "#ef4444", // red
-  "#84cc16", // lime
-  "#a855f7", // purple
-  "#f97316", // orange
+  "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
+  "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
 ];
 
-// Сид-данные из trips.json (реальные данные)
 const SEED_SPECIALISTS: Specialist[] = [
   { id: "АДА", name: "АДА", color: COLORS[0] },
   { id: "ККА", name: "ККА", color: COLORS[1] },
@@ -47,15 +38,31 @@ const SEED_TRIPS: Trip[] = [
   { id: "t16", specialistId: "АДА", city: "Сочинская ТЭС", purpose: "КДО", start: "2026-11-01", end: "2026-11-08", note: "ГТУ-1, 2" },
 ];
 
+// Маркеры начала и окончания оказания услуг
+const SEED_MARKERS: ServiceMarker[] = [
+  // Сахалинская Энергия — ОБТК
+  { id: "m1", objectId: "Сахалинская Энергия|ОБТК", type: "start", date: "2026-10-05", label: "Начало работ" },
+  { id: "m2", objectId: "Сахалинская Энергия|ОБТК", type: "end", date: "2026-10-15", label: "Окончание работ" },
+  // Краснодарская ТЭЦ — КДО
+  { id: "m3", objectId: "Краснодарская ТЭЦ|КДО", type: "start", date: "2026-10-20", label: "Начало КДО" },
+  { id: "m4", objectId: "Краснодарская ТЭЦ|КДО", type: "end", date: "2026-11-05", label: "Окончание КДО" },
+  // Прегольская ТЭС — ТИ
+  { id: "m5", objectId: "Прегольская ТЭС|ТИ", type: "start", date: "2026-11-10" },
+  { id: "m6", objectId: "Прегольская ТЭС|ТИ", type: "end", date: "2026-11-20" },
+  // Ставропольская ГРЭС — ВД
+  { id: "m7", objectId: "Ставропольская ГРЭС|ВД", type: "start", date: "2026-10-01" },
+  { id: "m8", objectId: "Ставропольская ГРЭС|ВД", type: "end", date: "2026-10-10" },
+];
+
 export const SEED_DATA: AppData = {
   specialists: SEED_SPECIALISTS,
   trips: SEED_TRIPS,
+  serviceMarkers: SEED_MARKERS,
 };
 
 // === Утилиты для работы с датами ===
 
 export function parseDate(s: string): Date {
-  // Защита от undefined/null/невалидных данных
   if (!s || typeof s !== "string") return new Date();
   const parts = s.split("-").map(Number);
   if (parts.length !== 3 || parts.some(isNaN)) return new Date();
