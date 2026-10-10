@@ -9,7 +9,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Singleton клиент — создаётся один раз
   const supabase = useMemo(() => createClient(), [])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -26,8 +25,6 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        // Мгновенный редирект через window.location
-        // Это надёжнее чем router.push + router.refresh
         window.location.href = '/'
       }
     } catch (err) {

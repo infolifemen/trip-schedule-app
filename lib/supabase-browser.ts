@@ -1,6 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-// Singleton Supabase client — создаётся один раз на всё приложение
 let _supabaseClient: ReturnType<typeof createBrowserClient> | null = null
 
 export function createClient() {
@@ -9,7 +8,7 @@ export function createClient() {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('КРИТИЧЕСКАЯ ОШИБКА: Supabase env vars не настроены')
+      console.error('Supabase env vars не настроены')
       throw new Error('Supabase credentials не настроены')
     }
 
