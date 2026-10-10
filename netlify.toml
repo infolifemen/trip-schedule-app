@@ -5,7 +5,10 @@
   command = "npm run build"
   publish = ".next"
 
-# Заголовки безопасности
+# Next.js runtime — Netlify автоматически использует @netlify/plugin-nextjs
+# при обнаружении Next.js в зависимостях package.json
+
+# Заголовки безопасности (перенесены из vercel.json)
 [[headers]]
   for = "/*"
   [headers.values]
@@ -16,7 +19,7 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
     Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
 
-# Кэширование статики Next.js
+# Кэширование статики
 [[headers]]
   for = "/_next/static/*"
   [headers.values]

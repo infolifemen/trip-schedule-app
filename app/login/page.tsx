@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase-browser'
 
 export default function LoginPage() {
@@ -9,7 +9,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = createClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,6 +25,7 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
+        // Мгновенный редирект через window.location
         window.location.href = '/'
       }
     } catch (err) {
