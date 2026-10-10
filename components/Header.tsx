@@ -2,7 +2,6 @@
 
 import { Plus, Download, Upload, RotateCcw } from "lucide-react";
 import LogoutButton from "./LogoutButton";
-import type { AppData } from "@/lib/types";
 
 interface HeaderProps {
   onAddTrip: () => void;
@@ -22,43 +21,106 @@ export function Header({
   specialistCount,
 }: HeaderProps) {
   return (
-    <header className="sticky top-0 z-20 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800">
-      <div className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 20,
+        background: "rgba(255,255,255,0.72)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
+        borderBottom: "1px solid rgba(0,0,0,0.06)",
+        fontFamily: "'Inter', -apple-system, sans-serif",
+      }}
+    >
+      <div style={{ padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+          <h1 style={{
+            fontSize: 20,
+            fontWeight: 700,
+            color: "#1a1a2e",
+            margin: 0,
+            letterSpacing: "-0.3px",
+          }}>
             📊 График командировок
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p style={{ fontSize: 12, color: "#5a5a72", marginTop: 4, margin: 0 }}>
             {specialistCount} специалистов · {tripCount} командировок
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={onAddTrip}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium rounded-lg shadow-lg shadow-blue-500/25 transition-all hover:shadow-blue-500/40 hover:scale-105"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 16px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(37,99,235,0.3)",
+              transition: "all 0.15s ease",
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.background = "#1d4ed8";
+              (e.target as HTMLElement).style.transform = "scale(1.02)";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.background = "#2563eb";
+              (e.target as HTMLElement).style.transform = "scale(1)";
+            }}
           >
-            <Plus size={18} />
+            <Plus size={16} />
             Добавить
           </button>
 
           <button
             onClick={onExport}
             title="Экспорт JSON"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            style={{
+              padding: 8,
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.06)",
+              borderRadius: 8,
+              color: "#5a5a72",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.04)";
+            }}
           >
-            <Download size={18} />
+            <Download size={16} />
           </button>
 
           <label
             title="Импорт JSON"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer"
+            style={{
+              padding: 8,
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.06)",
+              borderRadius: 8,
+              color: "#5a5a72",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+              display: "inline-flex",
+            }}
           >
-            <Upload size={18} />
+            <Upload size={16} />
             <input
               type="file"
               accept=".json"
-              className="hidden"
+              style={{ display: "none" }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -86,9 +148,23 @@ export function Header({
               }
             }}
             title="Сброс к демо-данным"
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+            style={{
+              padding: 8,
+              background: "rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.06)",
+              borderRadius: 8,
+              color: "#5a5a72",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.04)";
+            }}
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={16} />
           </button>
 
           <LogoutButton />

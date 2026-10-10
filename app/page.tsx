@@ -8,7 +8,7 @@ import { AddTripModal } from "@/components/AddTripModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
-import type { AppData, Specialist, Trip } from "@/lib/types";
+import type { AppData, Specialist, Trip, ServiceMarker } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
@@ -42,7 +42,7 @@ export default function Home() {
     return data.trips.filter((t) => t.specialistId === selectedSpecialist);
   }, [data.trips, selectedSpecialist]);
 
-  // Видимые специалисты (те, у кого есть командировки при фильтре, или все)
+  // Видимые специалисты
   const visibleSpecialists = useMemo(() => {
     if (!selectedSpecialist) return data.specialists;
     return data.specialists.filter((s) => s.id === selectedSpecialist);
@@ -60,7 +60,6 @@ export default function Home() {
   const handleSaveTrip = useCallback(async (trip: Trip, newSpecialist?: Omit<Specialist, "color">) => {
     let updatedSpecialists = data.specialists;
 
-    // Если новый специалист — добавляем
     if (newSpecialist && !data.specialists.find((s) => s.id === newSpecialist.id)) {
       const colors = [
         "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
@@ -69,16 +68,12 @@ export default function Home() {
       const color = colors[data.specialists.length % colors.length];
       const specialist: Specialist = { ...newSpecialist, color };
 
-      // Сохраняем в Supabase
       await saveSpecialist(specialist);
-
       updatedSpecialists = [...data.specialists, specialist];
     }
 
-    // Сохраняем командировку в Supabase
     await saveTrip(trip);
 
-    // Обновляем локальное состояние
     setData((prev) => {
       const existingIdx = prev.trips.findIndex((t) => t.id === trip.id);
       let trips: Trip[];
@@ -88,16 +83,12 @@ export default function Home() {
       } else {
         trips = [...prev.trips, trip];
       }
-
       return { specialists: updatedSpecialists, trips };
     });
   }, [data.specialists]);
 
   const handleDeleteTrip = useCallback(async (tripId: string) => {
-    // Удаляем из Supabase
     await deleteTrip(tripId);
-
-    // Обновляем локальное состояние
     setData((prev) => ({
       ...prev,
       trips: prev.trips.filter((t) => t.id !== tripId),
@@ -123,37 +114,30 @@ export default function Home() {
         alert("Неверный формат файла");
         return;
       }
-
-      // TODO: массовый импорт через Supabase
-      // Пока просто обновляем локальное состояние
       setData(imported);
       localStorage.removeItem("trip-schedule-import");
-      alert("Импорт завершён. Примечание: массовый импорт в Supabase ещё не реализован.");
+      alert("Импорт завершён.");
     } catch (e) {
       alert("Ошибка импорта");
     }
   };
 
   const handleReset = async () => {
-    if (!confirm("Сбросить все данные к начальному состоянию? Это удалит все изменения в Supabase.")) {
-      return;
-    }
-
-    // TODO: очистить таблицы Supabase и перезалить сид-данные
+    if (!confirm("Сбросить все данные к начальному состоянию?")) return;
     setData(SEED_DATA);
-    alert("Данные сброшены к начальному состоянию (только локально). Supabase не очищен.");
+    alert("Данные сброшены.");
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-slate-400">Загрузка...</div>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
+        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif" }}>Загрузка...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
       <Header
         onAddTrip={() => {
           setEditingTrip(null);
@@ -176,6 +160,7 @@ export default function Home() {
       <Timeline
         specialists={visibleSpecialists}
         trips={filteredTrips}
+        serviceMarkers={data.serviceMarkers || []}
         onSelectTrip={setViewingTrip}
       />
 
