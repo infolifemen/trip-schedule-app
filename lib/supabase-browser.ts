@@ -1,17 +1,19 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Singleton Supabase client — создаётся один раз на всё приложение
+let _supabaseClient: ReturnType<typeof createBrowserClient> | null = null
+
 export function createClient() {
-  // КРИТИЧНО: Все секреты только из env vars, никакого хардкода
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!_supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('КРИТИЧЕСКАЯ ОШИБКА: Supabase env vars не настроены на Vercel')
-    throw new Error('Supabase credentials не настроены')
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('КРИТИЧЕСКАЯ ОШИБКА: Supabase env vars не настроены')
+      throw new Error('Supabase credentials не настроены')
+    }
+
+    _supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
   }
-
-  return createBrowserClient(
-    supabaseUrl,
-    supabaseAnonKey
-  )
+  return _supabaseClient
 }
