@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
@@ -11,7 +11,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const supabase = createClient()
+  // Singleton клиент — создаётся один раз
+  const supabase = useMemo(() => createClient(), [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,8 +28,8 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        router.push('/')
-        router.refresh()
+        // Мгновенный редирект без router.refresh()
+        window.location.href = '/'
       }
     } catch (err) {
       setError('Произошла ошибка при входе')

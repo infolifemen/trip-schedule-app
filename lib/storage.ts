@@ -2,6 +2,10 @@ import type { AppData, Specialist, Trip } from "./types";
 import { SEED_DATA } from "./data";
 import { createClient } from "./supabase-browser";
 
+// Типы для данных из Supabase
+type SpecialistRow = { id: string; name: string; color: string };
+type TripRow = { id: string; specialist_id: string; city: string; purpose: string; start_date: string; end_date: string; note: string | null };
+
 // === Загрузка всех данных из Supabase ===
 export async function loadData(): Promise<AppData> {
   const supabase = createClient();
@@ -18,13 +22,13 @@ export async function loadData(): Promise<AppData> {
     }
 
     // Преобразуем данные из Supabase в формат AppData
-    const specialists: Specialist[] = (specResult.data || []).map((s) => ({
+    const specialists: Specialist[] = ((specResult.data || []) as SpecialistRow[]).map((s) => ({
       id: s.id,
       name: s.name,
       color: s.color,
     }));
 
-    const trips: Trip[] = (tripsResult.data || []).map((t) => ({
+    const trips: Trip[] = ((tripsResult.data || []) as TripRow[]).map((t) => ({
       id: t.id,
       specialistId: t.specialist_id,
       city: t.city,
@@ -54,7 +58,7 @@ async function seedInitialData(): Promise<void> {
   try {
     // Вставляем специалистов
     await supabase.from("specialists").insert(
-      SEED_DATA.specialists.map((s) => ({
+      SEED_DATA.specialists.map((s: Specialist) => ({
         id: s.id,
         name: s.name,
         color: s.color,
@@ -63,7 +67,7 @@ async function seedInitialData(): Promise<void> {
 
     // Вставляем командировки
     await supabase.from("trips").insert(
-      SEED_DATA.trips.map((t) => ({
+      SEED_DATA.trips.map((t: Trip) => ({
         id: t.id,
         specialist_id: t.specialistId,
         city: t.city,

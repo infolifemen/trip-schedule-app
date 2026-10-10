@@ -8,9 +8,11 @@ import { AddTripModal } from "@/components/AddTripModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
+import { useAuth } from "@/components/AuthProvider";
 import type { AppData, Specialist, Trip, ServiceMarker } from "@/lib/types";
 
 export default function Home() {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<AppData>(SEED_DATA);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -19,8 +21,10 @@ export default function Home() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
-  // Загрузка из Supabase при монтировании
+  // Загрузка из Supabase при монтировании (только после авторизации)
   useEffect(() => {
+    if (authLoading || !user) return;
+    
     loadData()
       .then((result) => {
         setData(result);
@@ -34,7 +38,7 @@ export default function Home() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [authLoading, user]);
 
   // Фильтрованные командировки
   const filteredTrips = useMemo(() => {
@@ -128,12 +132,18 @@ export default function Home() {
     alert("Данные сброшены.");
   };
 
-  if (loading) {
+  // Показываем загрузку пока авторизация или данные грузятся
+  if (authLoading || loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
-        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif" }}>Загрузка...</div>
+        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif", fontSize: 16 }}>Загрузка...</div>
       </div>
     );
+  }
+
+  // Если не авторизован — ничего не показываем (AuthProvider сделает редирект)
+  if (!user) {
+    return null;
   }
 
   return (
