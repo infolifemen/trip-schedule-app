@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
 export default function LoginPage() {
@@ -9,7 +8,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
 
   const supabase = createClient()
 
@@ -27,8 +25,8 @@ export default function LoginPage() {
       if (error) {
         setError(error.message)
       } else if (data.user) {
-        router.push('/')
-        router.refresh()
+        // Полная перезагрузка для надёжного редиректа
+        window.location.href = '/'
       }
     } catch (err) {
       setError('Произошла ошибка при входе')
