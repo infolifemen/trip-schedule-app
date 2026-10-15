@@ -46,6 +46,18 @@ next-env.d.ts
 build.log
 *.log
 
+# deploy artifacts
+*.zip
+deploy_err.txt
+deploy_log.txt
+deploy_out.txt
+deploy_stdout.log
+deploy_stderr.log
+build_stdout.log
+build_stderr.log
+ci_stdout.log
+ci_stderr.log
+
 # IDE
 .vscode/
 .idea/
