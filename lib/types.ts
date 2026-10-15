@@ -37,7 +37,18 @@ export interface TimelineObject {
   trips: Trip[];        // командировки по этому объекту
   startMarkers: ServiceMarker[];  // до 4
   endMarkers: ServiceMarker[];    // до 4
+  completed?: boolean;  // объект выполнен (скрыт по умолчанию)
 }
 
 // Специальные строки таймлайна
-export type TimelineRowType = "object" | "training" | "vacation1" | "vacation2";
+export type TimelineRowType = "object" | "training" | "vacation1" | "vacation2" | "completed-section";
+
+// Группировка пересекающихся командировок (для отображения всех участников)
+export interface TripGroup {
+  trips: Trip[];
+  start: Date;
+  end: Date;
+  left: number;
+  width: number;
+  specialistNames: string[];
+}
