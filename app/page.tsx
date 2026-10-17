@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
@@ -14,13 +15,27 @@ export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
+  const router = useRouter();
+
+  // Проверка авторизации
+  useEffect(() => {
+    const isAuth = localStorage.getItem('trip_schedule_auth');
+    if (isAuth !== 'true') {
+      router.push('/login');
+    } else {
+      setAuthChecking(false);
+    }
+  }, [router]);
 
   // Загрузка из Supabase при монтировании
   useEffect(() => {
+    if (authChecking) return;
+    
     loadData()
       .then((result) => {
         setData(result);
@@ -34,7 +49,7 @@ export default function Home() {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, [authChecking]);
 
   // Фильтрованные командировки
   const filteredTrips = useMemo(() => {
@@ -128,7 +143,12 @@ export default function Home() {
     alert("Данные сброшены.");
   };
 
-  if (loading) {
+  const handleLogout = () => {
+    localStorage.removeItem('trip_schedule_auth');
+    router.push('/login');
+  };
+
+  if (authChecking || loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
         <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif" }}>Загрузка...</div>
@@ -146,6 +166,7 @@ export default function Home() {
         onExport={handleExport}
         onImport={handleImport}
         onReset={handleReset}
+        onLogout={handleLogout}
         tripCount={data.trips.length}
         specialistCount={data.specialists.length}
       />

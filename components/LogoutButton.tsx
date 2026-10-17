@@ -1,21 +1,14 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-browser'
 import { LogOut } from 'lucide-react'
 
 export default function LogoutButton() {
   const router = useRouter()
-  const supabase = createClient()
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut()
-      router.push('/login')
-      router.refresh()
-    } catch (error) {
-      console.error('Ошибка при выходе:', error)
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('trip_schedule_auth')
+    router.push('/login')
   }
 
   return (

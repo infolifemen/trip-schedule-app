@@ -1,112 +1,143 @@
 'use client'
 
-import { useState } from 'react'
-import { createClient } from '@/lib/supabase-browser'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+// Простой пароль (можно изменить через env vars в Vercel)
+const SITE_PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-  const supabase = createClient()
+  useEffect(() => {
+    // Проверяем, может уже авторизован
+    const isAuth = localStorage.getItem('trip_schedule_auth')
+    if (isAuth === 'true') {
+      router.push('/')
+    }
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        setError(error.message)
-      } else if (data.user) {
-        // Полная перезагрузка для надёжного редиректа
-        window.location.href = '/'
-      }
-    } catch (err) {
-      setError('Произошла ошибка при входе')
-    } finally {
+    // Простая проверка пароля
+    if (password === SITE_PASSWORD) {
+      localStorage.setItem('trip_schedule_auth', 'true')
+      router.push('/')
+    } else {
+      setError('Неверный пароль')
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-md">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Вход в систему
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Расписание поездок
-          </p>
-        </div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#f0eeeb',
+      fontFamily: "'Inter', sans-serif"
+    }}>
+      <div style={{
+        maxWidth: '400px',
+        width: '100%',
+        padding: '32px',
+        background: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+      }}>
+        <h2 style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          textAlign: 'center',
+          marginBottom: '8px',
+          color: '#1a1a1a'
+        }}>
+          График командировок
+        </h2>
+        <p style={{
+          fontSize: '14px',
+          textAlign: 'center',
+          marginBottom: '24px',
+          color: '#6b7280'
+        }}>
+          Введите пароль для доступа
+        </p>
         
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Email адрес"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Пароль
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+        <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '16px' }}>
+            <label 
+              htmlFor="password" 
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                marginBottom: '8px',
+                color: '#374151'
+              }}
+            >
+              Пароль
+            </label>
+            <input
+              id="password"
+              type="password"
+              required
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+              placeholder="Введите пароль"
+            />
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">
-                    Ошибка входа
-                  </h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    {error}
-                  </div>
-                </div>
-              </div>
+            <div style={{
+              padding: '12px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              color: '#dc2626',
+              fontSize: '14px'
+            }}>
+              {error}
             </div>
           )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Вход...' : 'Войти'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px',
+              fontSize: '16px',
+              fontWeight: '500',
+              background: loading ? '#9ca3af' : '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background 0.2s'
+            }}
+            onMouseOver={(e) => !loading && (e.currentTarget.style.background = '#2563eb')}
+            onMouseOut={(e) => !loading && (e.currentTarget.style.background = '#3b82f6')}
+          >
+            {loading ? 'Вход...' : 'Войти'}
+          </button>
         </form>
       </div>
     </div>
