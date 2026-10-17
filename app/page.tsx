@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Specialist, Trip, AppData } from '../lib/types'
 import { loadData, saveTrip, deleteTrip, saveSpecialist, resetData } from '../lib/storage'
 import { SEED_DATA } from '../lib/data'
@@ -19,19 +19,9 @@ export default function Home() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const authChecked = useRef(false)
 
-  // Check auth BEFORE rendering anything
+  // Загрузка данных (auth уже проверена middleware на сервере)
   useEffect(() => {
-    if (authChecked.current) return
-    authChecked.current = true
-
-    const isAuth = localStorage.getItem('trip_schedule_auth')
-    if (isAuth !== 'true') {
-      window.location.replace('/login')
-      return
-    }
-
     loadDataFromStorage()
   }, [])
 
@@ -174,8 +164,7 @@ export default function Home() {
     alert('Данные сброшены к начальному состоянию')
   }
 
-  // Show loading screen while checking auth
-  if (isLoading || !authChecked.current) {
+  if (isLoading) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -187,9 +176,6 @@ export default function Home() {
       }}>
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '24px', color: '#1a1a1a' }}>Загрузка...</h1>
-          <noscript>
-            <meta httpEquiv="refresh" content="0;url=/login" />
-          </noscript>
           <p style={{ marginTop: '16px', color: '#6b7280' }}>
             Если страница не загружается, <a href="/login" style={{ color: '#3b82f6', textDecoration: 'underline' }}>нажмите здесь</a>
           </p>
