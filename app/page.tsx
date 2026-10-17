@@ -28,7 +28,6 @@ export default function Home() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
-  // Загрузка из Supabase
   useEffect(() => {
     loadData()
       .then((result) => {
@@ -45,19 +44,16 @@ export default function Home() {
       });
   }, []);
 
-  // Фильтрованные командировки (по специалисту)
   const filteredTrips = useMemo(() => {
     if (!selectedSpecialist) return data.trips;
     return data.trips.filter((t) => t.specialistIds.includes(selectedSpecialist));
   }, [data.trips, selectedSpecialist]);
 
-  // Видимые специалисты
   const visibleSpecialists = useMemo(() => {
     if (!selectedSpecialist) return data.specialists;
     return data.specialists.filter((s) => s.id === selectedSpecialist);
   }, [data.specialists, selectedSpecialist]);
 
-  // Количество командировок по специалистам
   const tripCountBySpecialist = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const trip of data.trips) {
@@ -68,7 +64,6 @@ export default function Home() {
     return counts;
   }, [data.trips]);
 
-  // Существующие объекты (для dropdown)
   const existingObjects: ExistingObject[] = useMemo(() => {
     const map = new Map<string, ExistingObject>();
     for (const trip of data.trips) {
@@ -85,35 +80,29 @@ export default function Home() {
     return Array.from(map.values());
   }, [data.trips]);
 
-  // Периоды для редактируемой командировки
   const editingServicePeriods = useMemo(() => {
     if (!editingTrip) return [];
     const objectId = `${editingTrip.city}|${editingTrip.purpose}`;
     return (data.servicePeriods || []).filter(p => p.objectId === objectId);
   }, [editingTrip, data.servicePeriods]);
 
-  // Фильтрованные отпуска
   const filteredVacations = useMemo(() => {
     if (!selectedSpecialist) return data.vacations || [];
     return (data.vacations || []).filter(v => v.specialistId === selectedSpecialist);
   }, [data.vacations, selectedSpecialist]);
 
-  // Фильтрованные обучения
   const filteredTrainings = useMemo(() => {
     if (!selectedSpecialist) return data.trainings || [];
     return (data.trainings || []).filter(t => t.specialistId === selectedSpecialist);
   }, [data.trainings, selectedSpecialist]);
 
-  // Архивированные ID
   const archivedIds = data.archivedIds || [];
 
-  // Подсчёт архивных объектов
   const archivedCount = useMemo(() => {
     const objIds = new Set(data.trips.map(t => `${t.city}|${t.purpose}`));
     return archivedIds.filter(id => objIds.has(id)).length;
   }, [data.trips, archivedIds]);
 
-  // Все объекты для ArchiveModal
   const allObjects = useMemo((): TimelineObject[] => {
     const map = new Map<string, TimelineObject>();
     for (const trip of data.trips) {
@@ -134,7 +123,6 @@ export default function Home() {
     return Array.from(map.values());
   }, [data.trips]);
 
-  // === Сохранение командировки ===
   const handleSaveTrip = useCallback(async (
     trip: Trip,
     newSpecialists?: Omit<Specialist, "color">[],
@@ -200,7 +188,6 @@ export default function Home() {
     });
   }, [data.specialists, data.servicePeriods, data.vacations]);
 
-  // === Удаление командировки ===
   const handleDeleteTrip = useCallback(async (tripId: string) => {
     await deleteTrip(tripId);
     setData((prev) => ({
@@ -209,7 +196,6 @@ export default function Home() {
     }));
   }, []);
 
-  // === Сохранение отпуска ===
   const handleSaveVacation = useCallback(async (vacation: Vacation) => {
     await saveVacation(vacation);
     setData((prev) => ({
@@ -218,7 +204,6 @@ export default function Home() {
     }));
   }, []);
 
-  // === Удаление отпуска ===
   const handleDeleteVacation = useCallback(async (vacationId: string) => {
     await deleteVacation(vacationId);
     setData((prev) => ({
@@ -229,7 +214,7 @@ export default function Home() {
 
   // === Архивирование ===
   const handleArchive = useCallback((ids: string[]) => {
-    const newArchivedIds = [...new Set([...archivedIds, ...ids])];
+    const newArchivedIds = Array.from(new Set([...archivedIds, ...ids]));
     saveArchivedIds(newArchivedIds);
     setData(prev => ({ ...prev, archivedIds: newArchivedIds }));
   }, [archivedIds]);
@@ -241,7 +226,6 @@ export default function Home() {
     setData(prev => ({ ...prev, archivedIds: newArchivedIds }));
   }, [archivedIds]);
 
-  // === Экспорт / Импорт ===
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
