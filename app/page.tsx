@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
@@ -13,43 +13,49 @@ import type { AppData, Specialist, Trip } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
-  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [authChecking, setAuthChecking] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
   const router = useRouter();
+  const redirectedRef = useRef(false);
 
-  // Проверка авторизации
+  // Проверка авторизации — выполняется ОДИН РАЗ при монтировании
   useEffect(() => {
+    // Предотвращаем повторные вызовы (React StrictMode)
+    if (redirectedRef.current) return;
+
     const isAuth = localStorage.getItem('trip_schedule_auth');
+    
     if (isAuth !== 'true') {
-      router.push('/login');
-    } else {
-      setAuthChecking(false);
+      redirectedRef.current = true;
+      // Используем window.location для надёжного redirect
+      window.location.href = '/login';
+      return;
     }
-  }, [router]);
+    
+    // Авторизован — продолжаем загрузку
+    setAuthChecked(true);
+  }, []); // Пустые зависимости — выполняется только при монтировании
 
-  // Загрузка данных
+  // Загрузка данных — только после проверки авторизации
   useEffect(() => {
-    if (authChecking) return;
+    if (!authChecked) return;
     
     loadData()
       .then((result) => {
         setData(result);
-        setLoaded(true);
       })
       .catch((err) => {
         console.error("Ошибка загрузки:", err);
         setData(SEED_DATA);
-        setLoaded(true);
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [authChecking]);
+  }, [authChecked]);
 
   const filteredTrips = useMemo(() => {
     if (!selectedSpecialist) return data.trips;
@@ -127,6 +133,8 @@ export default function Home() {
         return;
       }
       setData(imported);
+      // Сохраняем импортированные данные в localStorage
+      localStorage.setItem("trip_schedule_data", JSON.stringify(imported));
       localStorage.removeItem("trip-schedule-import");
       alert("Импорт завершён.");
     } catch (e) {
@@ -137,13 +145,17 @@ export default function Home() {
   const handleReset = async () => {
     if (!confirm("Сбросить все данные к начальному состоянию?")) return;
     setData(SEED_DATA);
+    localStorage.setItem("trip_schedule_data", JSON.stringify(SEED_DATA));
     alert("Данные сброшены.");
   };
 
-  if (authChecking || loading) {
+  // Показываем загрузку пока не проверена авторизация или не загружены данные
+  if (!authChecked || loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
-        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif" }}>Загрузка...</div>
+        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif", fontSize: "16px" }}>
+          Загрузка...
+        </div>
       </div>
     );
   }

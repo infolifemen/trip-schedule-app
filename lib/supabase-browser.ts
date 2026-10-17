@@ -1,17 +1,21 @@
 import { createBrowserClient } from '@supabase/ssr'
 
+// Supabase клиент теперь опциональный
+// Приложение работает на localStorage, Supabase можно подключить позже
 export function createClient() {
-  // КРИТИЧНО: Все секреты только из env vars, никакого хардкода
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+  // Если credentials не настроены — возвращаем null
+  // Приложение будет работать на localStorage
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error('КРИТИЧЕСКАЯ ОШИБКА: Supabase env vars не настроены на Vercel')
-    throw new Error('Supabase credentials не настроены')
+    return null
   }
 
-  return createBrowserClient(
-    supabaseUrl,
-    supabaseAnonKey
-  )
+  try {
+    return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  } catch (e) {
+    console.warn('Не удалось создать Supabase клиент:', e)
+    return null
+  }
 }
