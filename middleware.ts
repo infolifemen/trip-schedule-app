@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Basic Auth только для HTML страниц (не для API или статики)
+  // Basic Auth только для HTML страниц
   const authHeader = request.headers.get('authorization')
   
   // Пароль из env vars (Vercel Settings → Environment Variables)
@@ -23,7 +23,8 @@ export async function middleware(request: NextRequest) {
   if (authHeader) {
     try {
       const base64Credentials = authHeader.split(' ')[1]
-      const credentials = Buffer.from(base64Credentials, 'base64').toString('utf-8')
+      // Используем atob() вместо Buffer.from() для Edge Runtime
+      const credentials = atob(base64Credentials)
       const [user, pass] = credentials.split(':')
       
       // Проверяем логин и пароль
@@ -39,7 +40,7 @@ export async function middleware(request: NextRequest) {
   return new Response('Authentication Required', {
     status: 401,
     headers: {
-      'WWW-Authenticate': `Basic realm="График командировок", charset="UTF-8"`,
+      'WWW-Authenticate': 'Basic realm="Trip Schedule"',
     },
   })
 }
