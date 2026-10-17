@@ -1,0 +1,247 @@
+﻿node.exe : Fetching deployment "trip-schedule-eta.vercel.app" in infolifemen
+At C:\nvm4w\nodejs\vercel.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/vercel/dist/vc.js"  ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Fetching deploy... in infolifemen:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{
+  "id": "dpl_FaVWc8SE59qzB8TFrEgnNA9ok1ch",
+  "name": "trip-schedule",
+  "url": "trip-schedule-p1d6kmp08-infolifemen.vercel.app",
+  "target": "production",
+  "readyState": "READY",
+  "createdAt": 1792099986860,
+  "duration": {
+    "startTime": 1792099988159,
+    "endTime": 1792100036428,
+    "endTimeCapped": 1792100036428,
+    "timeToReady": 32942,
+    "timeToContainerExit": 48269,
+    "timeToContainerExitCapped": 48269,
+    "timeForBilling": 60000,
+    "cpuTimeForBilling": 120000
+  },
+  "buildMachine": {
+    "cores": 2,
+    "memory": 8192,
+    "machine": "basic",
+    "selectionType": "fixed",
+    "selectionSource": "plan-default"
+  },
+  "aliases": [
+    "trip-schedule-eta.vercel.app",
+    "trip-schedule-infolifemen.vercel.app"
+  ],
+  "builds": [
+    {
+      "id": "bld_gk0ljh97w",
+      "deploymentId": "dpl_FaVWc8SE59qzB8TFrEgnNA9ok1ch",
+      "entrypoint": ".",
+      "readyState": "READY",
+      "readyStateAt": 1792099986527,
+      "createdAt": 1792099986527,
+      "createdIn": "sfo1",
+      "use": "@vercel/vc-build",
+      "config": {
+        "framework": "nextjs",
+        "nodeVersion": "24.x",
+        "projectCreatedAt": 1792092910781,
+        "vercelConfig": {
+          "headers": [
+            {
+              "source": "/(.*)",
+              "headers": [
+                {
+                  "key": "X-Content-Type-Options",
+                  "value": "nosniff"
+                },
+                {
+                  "key": "X-Frame-Options",
+                  "value": "DENY"
+                },
+                {
+                  "key": "X-XSS-Protection",
+                  "value": "1; mode=block"
+                },
+                {
+                  "key": "Referrer-Policy",
+                  "value": "strict-origin-when-cross-origin"
+                },
+                {
+                  "key": "Permissions-Policy",
+                  "value": "camera=(), microphone=(), geolocation=()"
+                },
+                {
+                  "key": "Strict-Transport-Security",
+                  "value": "max-age=31536000; includeSubDomains; preload"
+                }
+              ]
+            }
+          ],
+          "name": "trip-schedule",
+          "version": 2
+        }
+      },
+      "middleware": [],
+      "output": [
+        {
+          "prerender": {},
+          "type": "lambda",
+          "path": "index",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/b376984488d7981591cb48d2ce3a3d685ac9ff010f5fdc90d02879a02a619f4e",
+          "mode": 49590,
+          "size": 721603,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-af94fdc59b3ed60efc4da0a9a63d651c90",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": {},
+          "type": "lambda",
+          "path": "index.rsc",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/b376984488d7981591cb48d2ce3a3d685ac9ff010f5fdc90d02879a02a619f4e",
+          "mode": 49590,
+          "size": 721603,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-af94fdc59b3ed60efc4da0a9a63d651c90",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": {},
+          "type": "lambda",
+          "path": "login",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/b376984488d7981591cb48d2ce3a3d685ac9ff010f5fdc90d02879a02a619f4e",
+          "mode": 49590,
+          "size": 721603,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-af94fdc59b3ed60efc4da0a9a63d651c90",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": {},
+          "type": "lambda",
+          "path": "login.rsc",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/b376984488d7981591cb48d2ce3a3d685ac9ff010f5fdc90d02879a02a619f4e",
+          "mode": 49590,
+          "size": 721603,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-af94fdc59b3ed60efc4da0a9a63d651c90",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "_not-found",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/fb400646565533fd2a46ad6f7cab336d66454b078378d8ee688621b41a094e60",
+          "mode": 49590,
+          "size": 641114,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-883b5f0ce32c45ae9416a6cd84ecc8c285",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "_not-found.rsc",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/fb400646565533fd2a46ad6f7cab336d66454b078378d8ee688621b41a094e60",
+          "mode": 49590,
+          "size": 641114,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-883b5f0ce32c45ae9416a6cd84ecc8c285",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        },
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "middleware",
+          "digest": "prj_6ruoMUKYEgAaUV92Wk2ulANPxrpJ/f260565e20b8686198e78d2a722215a65c34250da52064146d23d3a19a856518",
+          "mode": 49590,
+          "size": 110636,
+          "lambda": {
+            "functionName": "team_KuJspw7nDOTCQsxXLSnSYtzz-3ba5bc7af0718ac08d5916e9ace05ed2c2",
+            "deployedTo": [
+              "bom1",
+              "fra1",
+              "gru1",
+              "iad1",
+              "lhr1",
+              "sfo1",
+              "sin1",
+              "syd1"
+            ],
+            "runtime": "nodejs24.x",
+            "memorySize": 2048,
+            "timeout": 60,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-edge-1_51_11-production-851b7ac1bb-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        }
+      ],
+      "fingerprint": null
+    }
+  ],
+  "contextName": "infolifemen"
+}

@@ -5,10 +5,14 @@ import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
+import { AddVacationModal } from "@/components/AddVacationModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
-import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
+import {
+  loadData, saveTrip, deleteTrip, saveSpecialist,
+  saveServicePeriods, saveVacation, deleteVacation,
+} from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
-import type { AppData, Specialist, Trip, ServiceMarker } from "@/lib/types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation, ExistingObject } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
@@ -16,10 +20,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showVacationModal, setShowVacationModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
-  // Загрузка из Supabase при монтировании
+  // Загрузка из Supabase
   useEffect(() => {
     loadData()
       .then((result) => {
@@ -36,10 +41,10 @@ export default function Home() {
       });
   }, []);
 
-  // Фильтрованные командировки
+  // Фильтрованные командировки (по специалисту)
   const filteredTrips = useMemo(() => {
     if (!selectedSpecialist) return data.trips;
-    return data.trips.filter((t) => t.specialistId === selectedSpecialist);
+    return data.trips.filter((t) => t.specialistIds.includes(selectedSpecialist));
   }, [data.trips, selectedSpecialist]);
 
   // Видимые специалисты
@@ -52,28 +57,83 @@ export default function Home() {
   const tripCountBySpecialist = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const trip of data.trips) {
-      counts[trip.specialistId] = (counts[trip.specialistId] || 0) + 1;
+      for (const sid of trip.specialistIds) {
+        counts[sid] = (counts[sid] || 0) + 1;
+      }
     }
     return counts;
   }, [data.trips]);
 
-  const handleSaveTrip = useCallback(async (trip: Trip, newSpecialist?: Omit<Specialist, "color">) => {
+  // Существующие объекты (для dropdown)
+  const existingObjects: ExistingObject[] = useMemo(() => {
+    const map = new Map<string, ExistingObject>();
+    for (const trip of data.trips) {
+      const key = `${trip.city}|${trip.purpose}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          city: trip.city,
+          purpose: trip.purpose,
+          equipment: trip.equipment,
+        });
+      }
+    }
+    return Array.from(map.values());
+  }, [data.trips]);
+
+  // Периоды для редактируемой командировки
+  const editingServicePeriods = useMemo(() => {
+    if (!editingTrip) return [];
+    const objectId = `${editingTrip.city}|${editingTrip.purpose}`;
+    return (data.servicePeriods || []).filter(p => p.objectId === objectId);
+  }, [editingTrip, data.servicePeriods]);
+
+  // Фильтрованные отпуска
+  const filteredVacations = useMemo(() => {
+    if (!selectedSpecialist) return data.vacations || [];
+    return (data.vacations || []).filter(v => v.specialistId === selectedSpecialist);
+  }, [data.vacations, selectedSpecialist]);
+
+  // === Сохранение командировки ===
+  const handleSaveTrip = useCallback(async (
+    trip: Trip,
+    newSpecialists?: Omit<Specialist, "color">[],
+    servicePeriods?: ServicePeriod[]
+  ) => {
     let updatedSpecialists = data.specialists;
 
-    if (newSpecialist && !data.specialists.find((s) => s.id === newSpecialist.id)) {
+    // Сохраняем новых специалистов
+    if (newSpecialists && newSpecialists.length > 0) {
       const colors = [
         "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
         "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
       ];
-      const color = colors[data.specialists.length % colors.length];
-      const specialist: Specialist = { ...newSpecialist, color };
+      const newSpecs: Specialist[] = [];
 
-      await saveSpecialist(specialist);
-      updatedSpecialists = [...data.specialists, specialist];
+      for (const ns of newSpecialists) {
+        if (!data.specialists.find((s) => s.id === ns.id)) {
+          const color = colors[(data.specialists.length + newSpecs.length) % colors.length];
+          const spec: Specialist = { ...ns, color };
+          await saveSpecialist(spec);
+          newSpecs.push(spec);
+        }
+      }
+
+      if (newSpecs.length > 0) {
+        updatedSpecialists = [...data.specialists, ...newSpecs];
+      }
     }
 
+    // Сохраняем командировку
     await saveTrip(trip);
 
+    // Сохраняем периоды оказания услуг
+    if (servicePeriods !== undefined) {
+      const objectId = `${trip.city}|${trip.purpose}`;
+      await saveServicePeriods(objectId, servicePeriods);
+    }
+
+    // Обновляем state
     setData((prev) => {
       const existingIdx = prev.trips.findIndex((t) => t.id === trip.id);
       let trips: Trip[];
@@ -83,10 +143,27 @@ export default function Home() {
       } else {
         trips = [...prev.trips, trip];
       }
-      return { specialists: updatedSpecialists, trips };
-    });
-  }, [data.specialists]);
 
+      // Обновляем периоды
+      let updatedPeriods = prev.servicePeriods || [];
+      if (servicePeriods !== undefined) {
+        const objectId = `${trip.city}|${trip.purpose}`;
+        updatedPeriods = [
+          ...updatedPeriods.filter(p => p.objectId !== objectId),
+          ...servicePeriods,
+        ];
+      }
+
+      return {
+        specialists: updatedSpecialists,
+        trips,
+        servicePeriods: updatedPeriods,
+        vacations: prev.vacations,
+      };
+    });
+  }, [data.specialists, data.servicePeriods, data.vacations]);
+
+  // === Удаление командировки ===
   const handleDeleteTrip = useCallback(async (tripId: string) => {
     await deleteTrip(tripId);
     setData((prev) => ({
@@ -95,6 +172,25 @@ export default function Home() {
     }));
   }, []);
 
+  // === Сохранение отпуска ===
+  const handleSaveVacation = useCallback(async (vacation: Vacation) => {
+    await saveVacation(vacation);
+    setData((prev) => ({
+      ...prev,
+      vacations: [...(prev.vacations || []), vacation],
+    }));
+  }, []);
+
+  // === Удаление отпуска ===
+  const handleDeleteVacation = useCallback(async (vacationId: string) => {
+    await deleteVacation(vacationId);
+    setData((prev) => ({
+      ...prev,
+      vacations: (prev.vacations || []).filter(v => v.id !== vacationId),
+    }));
+  }, []);
+
+  // === Экспорт / Импорт ===
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -113,6 +209,13 @@ export default function Home() {
       if (!imported.specialists || !imported.trips) {
         alert("Неверный формат файла");
         return;
+      }
+      // Миграция старых данных
+      if (imported.trips.some((t: any) => t.specialistId && !t.specialistIds)) {
+        imported.trips = imported.trips.map((t: any) => ({
+          ...t,
+          specialistIds: t.specialistIds || [t.specialistId],
+        }));
       }
       setData(imported);
       localStorage.removeItem("trip-schedule-import");
@@ -160,14 +263,19 @@ export default function Home() {
       <Timeline
         specialists={visibleSpecialists}
         trips={filteredTrips}
-        serviceMarkers={data.serviceMarkers || []}
+        servicePeriods={data.servicePeriods || []}
+        vacations={filteredVacations}
         onSelectTrip={setViewingTrip}
+        onAddVacation={() => setShowVacationModal(true)}
+        onDeleteVacation={handleDeleteVacation}
       />
 
       {showAddModal && (
         <AddTripModal
           specialists={data.specialists}
+          existingObjects={existingObjects}
           initialTrip={editingTrip}
+          initialServicePeriods={editingServicePeriods}
           onSave={handleSaveTrip}
           onClose={() => {
             setShowAddModal(false);
@@ -176,10 +284,19 @@ export default function Home() {
         />
       )}
 
+      {showVacationModal && (
+        <AddVacationModal
+          specialists={data.specialists}
+          onSave={handleSaveVacation}
+          onClose={() => setShowVacationModal(false)}
+        />
+      )}
+
       {viewingTrip && (
         <TripDetailsModal
           trip={viewingTrip}
-          specialist={data.specialists.find((s) => s.id === viewingTrip.specialistId)}
+          specialists={data.specialists}
+          servicePeriods={data.servicePeriods}
           onClose={() => setViewingTrip(null)}
           onEdit={() => {
             setEditingTrip(viewingTrip);

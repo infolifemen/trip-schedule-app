@@ -1,6 +1,5 @@
-import type { AppData, Specialist, Trip, ServiceMarker } from "./types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation } from "./types";
 
-// Цветовая палитра для специалистов (используется только для фильтров)
 const COLORS = [
   "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
   "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
@@ -20,44 +19,39 @@ const SEED_SPECIALISTS: Specialist[] = [
 ];
 
 const SEED_TRIPS: Trip[] = [
-  { id: "t1", specialistId: "АДА", city: "Сахалинская Энергия", purpose: "ОБТК", start: "2026-10-05", end: "2026-10-15" },
-  { id: "t2", specialistId: "ККА", city: "Сахалинская Энергия", purpose: "ОБТК", start: "2026-10-05", end: "2026-10-15" },
-  { id: "t3", specialistId: "СНМ", city: "Краснодарская ТЭЦ", purpose: "КДО", start: "2026-10-20", end: "2026-11-05", note: "ЭД 6 кВ, бл.2-4" },
-  { id: "t4", specialistId: "ЧАС", city: "Краснодарская ТЭЦ", purpose: "КДО", start: "2026-10-20", end: "2026-11-05", note: "ЭД 6 кВ" },
-  { id: "t5", specialistId: "СМВ", city: "Прегольская ТЭС", purpose: "ТИ", start: "2026-11-10", end: "2026-11-20", note: "ТГ-10, 11" },
-  { id: "t6", specialistId: "ТИС", city: "Прегольская ТЭС", purpose: "ТИ", start: "2026-11-10", end: "2026-11-20", note: "ТГ-10, 11" },
-  { id: "t7", specialistId: "ТАА", city: "Калининградская ТЭЦ-2", purpose: "ЧР", start: "2026-11-25", end: "2026-12-05", note: "Г-10, 11" },
-  { id: "t8", specialistId: "ЯН", city: "Калининградская ТЭЦ-2", purpose: "ЧР", start: "2026-11-25", end: "2026-12-05", note: "Г-10, 11" },
-  { id: "t9", specialistId: "КДА", city: "Астраханская ТЭЦ-2", purpose: "КДО", start: "2026-12-10", end: "2026-12-20", note: "ТГ-4, Т-4" },
-  { id: "t10", specialistId: "СДС", city: "Астраханская ТЭЦ-2", purpose: "КДО", start: "2026-12-10", end: "2026-12-20", note: "ТГ-4, Т-4" },
-  { id: "t11", specialistId: "АДА", city: "Шатурская ГРЭС", purpose: "КДО", start: "2026-12-01", end: "2026-12-08", note: "ТГ-2, 5" },
-  { id: "t12", specialistId: "ЧАС", city: "Шатурская ГРЭС", purpose: "КДО", start: "2026-12-01", end: "2026-12-08", note: "ТГ-2, 5" },
-  { id: "t13", specialistId: "СНМ", city: "Ставропольская ГРЭС", purpose: "ВД", start: "2026-10-01", end: "2026-10-10", note: "ТГ-2, 3" },
-  { id: "t14", specialistId: "ЯН", city: "Ставропольская ГРЭС", purpose: "ВД", start: "2026-10-01", end: "2026-10-10", note: "ТГ-2, 3" },
-  { id: "t15", specialistId: "ККА", city: "Сочинская ТЭС", purpose: "КДО", start: "2026-11-01", end: "2026-11-08", note: "ГТУ-1, 2" },
-  { id: "t16", specialistId: "АДА", city: "Сочинская ТЭС", purpose: "КДО", start: "2026-11-01", end: "2026-11-08", note: "ГТУ-1, 2" },
+  { id: "t1", specialistIds: ["АДА", "ККА"], city: "Сахалинская Энергия", purpose: "ОБТК", equipment: "Силовой трансформатор", start: "2026-10-05", end: "2026-10-15" },
+  { id: "t3", specialistIds: ["СНМ", "ЧАС"], city: "Краснодарская ТЭЦ", purpose: "КДО", equipment: "ЭД 6 кВ, бл.2-4", start: "2026-10-20", end: "2026-11-05", note: "ЭД 6 кВ, бл.2-4" },
+  { id: "t5", specialistIds: ["СМВ", "ТИС"], city: "Прегольская ТЭС", purpose: "ТИ", equipment: "ТГ-10, 11", start: "2026-11-10", end: "2026-11-20", note: "ТГ-10, 11" },
+  { id: "t7", specialistIds: ["ТАА", "ЯН"], city: "Калининградская ТЭЦ-2", purpose: "ЧР", equipment: "Г-10, 11", start: "2026-11-25", end: "2026-12-05", note: "Г-10, 11" },
+  { id: "t9", specialistIds: ["КДА", "СДС"], city: "Астраханская ТЭЦ-2", purpose: "КДО", equipment: "ТГ-4, Т-4", start: "2026-12-10", end: "2026-12-20", note: "ТГ-4, Т-4" },
+  { id: "t11", specialistIds: ["АДА", "ЧАС"], city: "Шатурская ГРЭС", purpose: "КДО", equipment: "ТГ-2, 5", start: "2026-12-01", end: "2026-12-08", note: "ТГ-2, 5" },
+  { id: "t13", specialistIds: ["СНМ", "ЯН"], city: "Ставропольская ГРЭС", purpose: "ВД", equipment: "ТГ-2, 3", start: "2026-10-01", end: "2026-10-10", note: "ТГ-2, 3" },
+  { id: "t15", specialistIds: ["ККА", "АДА"], city: "Сочинская ТЭС", purpose: "КДО", equipment: "ГТУ-1, 2", start: "2026-11-01", end: "2026-11-08", note: "ГТУ-1, 2" },
 ];
 
-// Маркеры начала и окончания оказания услуг
-const SEED_MARKERS: ServiceMarker[] = [
-  // Сахалинская Энергия — ОБТК
-  { id: "m1", objectId: "Сахалинская Энергия|ОБТК", type: "start", date: "2026-10-05", label: "Начало работ" },
-  { id: "m2", objectId: "Сахалинская Энергия|ОБТК", type: "end", date: "2026-10-15", label: "Окончание работ" },
-  // Краснодарская ТЭЦ — КДО
-  { id: "m3", objectId: "Краснодарская ТЭЦ|КДО", type: "start", date: "2026-10-20", label: "Начало КДО" },
-  { id: "m4", objectId: "Краснодарская ТЭЦ|КДО", type: "end", date: "2026-11-05", label: "Окончание КДО" },
-  // Прегольская ТЭС — ТИ
-  { id: "m5", objectId: "Прегольская ТЭС|ТИ", type: "start", date: "2026-11-10" },
-  { id: "m6", objectId: "Прегольская ТЭС|ТИ", type: "end", date: "2026-11-20" },
-  // Ставропольская ГРЭС — ВД
-  { id: "m7", objectId: "Ставропольская ГРЭС|ВД", type: "start", date: "2026-10-01" },
-  { id: "m8", objectId: "Ставропольская ГРЭС|ВД", type: "end", date: "2026-10-10" },
+// Периоды оказания услуг (до 6 на объект)
+const SEED_SERVICE_PERIODS: ServicePeriod[] = [
+  { id: "sp1", objectId: "Сахалинская Энергия|ОБТК", start: "2026-10-01", end: "2026-10-20" },
+  { id: "sp2", objectId: "Сахалинская Энергия|ОБТК", start: "2026-11-01", end: "2026-11-15" },
+  { id: "sp3", objectId: "Краснодарская ТЭЦ|КДО", start: "2026-10-15", end: "2026-11-10" },
+  { id: "sp4", objectId: "Прегольская ТЭС|ТИ", start: "2026-11-05", end: "2026-11-25" },
+  { id: "sp5", objectId: "Ставропольская ГРЭС|ВД", start: "2026-09-25", end: "2026-10-15" },
+  { id: "sp6", objectId: "Сочинская ТЭС|КДО", start: "2026-10-28", end: "2026-11-12" },
+];
+
+// Отпуска специалистов
+const SEED_VACATIONS: Vacation[] = [
+  { id: "v1", specialistId: "АДА", start: "2026-10-25", end: "2026-11-03" },
+  { id: "v2", specialistId: "ККА", start: "2026-12-15", end: "2026-12-28" },
+  { id: "v3", specialistId: "СНМ", start: "2026-11-20", end: "2026-11-30" },
+  { id: "v4", specialistId: "ТИС", start: "2026-10-18", end: "2026-10-25" },
 ];
 
 export const SEED_DATA: AppData = {
   specialists: SEED_SPECIALISTS,
   trips: SEED_TRIPS,
-  serviceMarkers: SEED_MARKERS,
+  servicePeriods: SEED_SERVICE_PERIODS,
+  vacations: SEED_VACATIONS,
 };
 
 // === Утилиты для работы с датами ===
