@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
-import type { Specialist, Trip, TimelineObject, ServiceMarker, TripGroup } from "@/lib/types";
+import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, TripGroup } from "@/lib/types";
 import {
   parseDate,
   diffDays,
@@ -9,13 +9,17 @@ import {
   startOfMonth,
   monthNameShort,
   today,
+  getSpecialistColor,
 } from "@/lib/data";
 
 interface TimelineProps {
   specialists: Specialist[];
   trips: Trip[];
-  serviceMarkers?: ServiceMarker[];
+  servicePeriods?: ServicePeriod[];
+  vacations?: Vacation[];
   onSelectTrip?: (trip: Trip) => void;
+  onAddVacation?: () => void;
+  onDeleteVacation?: (vacationId: string) => void;
 }
 
 // Дизайн-токены
@@ -23,18 +27,18 @@ const PX_PER_DAY = 20;
 const ROW_HEIGHT = 44;
 const LEFT_COL_WIDTH = 220;
 const HEADER_HEIGHT = 56;
-const TRIP_BAR_COLOR = "#2563eb";       // blue
+const TRIP_BAR_COLOR = "#2563eb";
 const TRIP_BAR_HOVER = "#1d4ed8";
-const MARKER_START_COLOR = "#86efac";  // dim green — начало оказания услуг
-const MARKER_END_COLOR = "#fde047";    // dim yellow — окончание оказания услуг
+const MARKER_START_COLOR = "#86efac";
+const MARKER_END_COLOR = "#fde047";
 const BG = "#f0eeeb";
 const CARD_BG = "rgba(255,255,255,0.72)";
 const BORDER = "rgba(0,0,0,0.06)";
 const TEXT_DIM = "#5a5a72";
 const TEXT_BRIGHT = "#1a1a2e";
 const COMPLETED_BG = "rgba(134,239,172,0.08)";
+const VACATION_BAR_COLOR = "#f59e0b";
 
-// Утилиты форматирования
 function formatDay(d: Date): string {
   return String(d.getDate());
 }
@@ -60,15 +64,16 @@ function groupTripsByObject(trips: Trip[]): TimelineObject[] {
         id,
         city: trip.city,
         purpose: trip.purpose,
+        equipment: trip.equipment,
         trips: [],
-        startMarkers: [],
-        endMarkers: [],
+        servicePeriods: [],
       });
     }
     map.get(id)!.trips.push(trip);
+    // Обновляем equipment если есть
+    if (trip.equipment) map.get(id)!.equipment = trip.equipment;
   }
 
-  // Сортируем: сначала по дате начала первой командировки
   const sorted = Array.from(map.values()).sort((a, b) => {
     const aStart = a.trips.length > 0 ? parseDate(a.trips[0].start).getTime() : 0;
     const bStart = b.trips.length > 0 ? parseDate(b.trips[0].start).getTime() : 0;
@@ -78,7 +83,7 @@ function groupTripsByObject(trips: Trip[]): TimelineObject[] {
   return sorted;
 }
 
-// Группировка пересекающихся командировок внутри одного объекта
+// Группировка пересекающихся командировок
 function groupOverlappingTrips(trips: Trip[], rangeStart: Date): TripGroup[] {
   if (trips.length === 0) return [];
 
@@ -94,11 +99,9 @@ function groupOverlappingTrips(trips: Trip[], rangeStart: Date): TripGroup[] {
     const tripStart = parseDate(trip.start);
     const tripEnd = parseDate(trip.end);
 
-    // Ищем группу, с которой пересекается эта командировка
     let merged = false;
     for (const group of groups) {
       if (tripStart <= group.end && tripEnd >= group.start) {
-        // Пересекается — добавляем в группу
         group.trips.push(trip);
         if (tripStart < group.start) group.start = tripStart;
         if (tripEnd > group.end) group.end = tripEnd;
@@ -119,14 +122,14 @@ function groupOverlappingTrips(trips: Trip[], rangeStart: Date): TripGroup[] {
     }
   }
 
-  // Вычисляем позиции и имена специалистов
   for (const group of groups) {
     group.left = diffDays(rangeStart, group.start) * PX_PER_DAY;
     group.width = (diffDays(group.start, group.end) + 1) * PX_PER_DAY;
-    // Уникальные имена специалистов
     const names = new Set<string>();
     for (const trip of group.trips) {
-      names.add(trip.specialistId);
+      for (const sid of trip.specialistIds) {
+        names.add(sid);
+      }
     }
     group.specialistNames = Array.from(names);
   }
@@ -134,13 +137,91 @@ function groupOverlappingTrips(trips: Trip[], rangeStart: Date): TripGroup[] {
   return groups;
 }
 
-export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip }: TimelineProps) {
+// Компонент тултипа для объекта
+function ObjectTooltip({
+  obj,
+  servicePeriods,
+  position,
+}: {
+  obj: TimelineObject;
+  servicePeriods: ServicePeriod[];
+  position: { top: number; left: number };
+}) {
+  const formatDateRu = (s: string) => {
+    if (!s) return "—";
+    const d = parseDate(s);
+    if (isNaN(d.getTime())) return "—";
+    const months = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  };
+
+  const objPeriods = servicePeriods.filter(p => p.objectId === obj.id);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        top: position.top,
+        left: position.left + 10,
+        zIndex: 100,
+        background: "rgba(15, 23, 42, 0.96)",
+        backdropFilter: "blur(12px)",
+        borderRadius: 10,
+        padding: "12px 16px",
+        border: "1px solid rgba(255,255,255,0.1)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        minWidth: 220,
+        maxWidth: 320,
+        fontFamily: "'Inter', -apple-system, sans-serif",
+        pointerEvents: "none",
+      }}
+    >
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        📍 {obj.city}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          <span style={{ color: "#64748b" }}>Вид работ: </span>
+          <span style={{ color: "#e2e8f0", fontWeight: 500 }}>{obj.purpose || "—"}</span>
+        </div>
+        <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          <span style={{ color: "#64748b" }}>Оборудование: </span>
+          <span style={{ color: "#e2e8f0", fontWeight: 500 }}>{obj.equipment || "—"}</span>
+        </div>
+      </div>
+
+      {objPeriods.length > 0 && (
+        <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Периоды оказания услуг
+          </div>
+          {objPeriods.map((p, i) => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+              <span style={{
+                width: 16, height: 16, borderRadius: 4,
+                background: "rgba(37,99,235,0.2)", color: "#60a5fa",
+                fontSize: 9, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                {i + 1}
+              </span>
+              <span style={{ fontSize: 11, color: "#e2e8f0" }}>
+                {formatDateRu(p.start)} → {formatDateRu(p.end)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], onSelectTrip, onAddVacation, onDeleteVacation }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const leftColRef = useRef<HTMLDivElement>(null);
 
-  // State для управления скрытием выполненных объектов
   const [completedHidden, setCompletedHidden] = useState(true);
-  // localStorage для запоминания отмеченных как выполненные объектов
   const [completedOverrides, setCompletedOverrides] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -153,44 +234,42 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
     return new Set();
   });
 
-  // Сохраняем completed overrides в localStorage
+  // Тултип
+  const [tooltipObj, setTooltipObj] = useState<TimelineObject | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ top: 0, left: 0 });
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("completedObjects", JSON.stringify(Array.from(completedOverrides)));
     }
   }, [completedOverrides]);
 
-  // Группируем командировки по объектам
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
 
-  // Привязываем маркеры и completed статус к объектам
   const enrichedObjects = useMemo(() => {
     return objects.map((obj) => {
-      const objMarkers = serviceMarkers.filter((m) => m.objectId === obj.id);
+      const objPeriods = servicePeriods.filter((p) => p.objectId === obj.id);
       const isCompleted = completedOverrides.has(obj.id);
       return {
         ...obj,
-        startMarkers: objMarkers.filter((m) => m.type === "start").slice(0, 4),
-        endMarkers: objMarkers.filter((m) => m.type === "end").slice(0, 4),
+        servicePeriods: objPeriods,
         completed: isCompleted,
       };
     });
-  }, [objects, serviceMarkers, completedOverrides]);
+  }, [objects, servicePeriods, completedOverrides]);
 
-  // Разделяем на активные и выполненные
   const activeObjects = useMemo(() => enrichedObjects.filter(o => !o.completed), [enrichedObjects]);
   const completedObjects = useMemo(() => enrichedObjects.filter(o => o.completed), [enrichedObjects]);
 
   // Строки таймлайна
-  const rows: { type: "object" | "completed-section" | "training" | "vacation1" | "vacation2"; data?: TimelineObject }[] = useMemo(() => {
-    const result: typeof rows = [];
-    
-    // Активные объекты
+  type RowType = "object" | "vacation" | "completed-section";
+  const rows: { type: RowType; data?: TimelineObject }[] = useMemo(() => {
+    const result: { type: RowType; data?: TimelineObject }[] = [];
+
     for (const obj of activeObjects) {
       result.push({ type: "object", data: obj });
     }
-    
-    // Секция выполненных объектов
+
     if (completedObjects.length > 0) {
       result.push({ type: "completed-section" });
       if (!completedHidden) {
@@ -199,38 +278,41 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
         }
       }
     }
-    
-    result.push({ type: "training" });
-    result.push({ type: "vacation1" });
-    result.push({ type: "vacation2" });
+
+    // Строка отпусков
+    result.push({ type: "vacation" });
+
     return result;
   }, [activeObjects, completedObjects, completedHidden]);
 
-  // Вычисляем диапазон дат
+  // Диапазон дат
   const range = useMemo(() => {
-    if (trips.length === 0) {
+    if (trips.length === 0 && vacations.length === 0) {
       const start = addDays(today_date, -30);
       return { start, end: addDays(today_date, 90), totalDays: 121 };
     }
 
-    const minDate = trips.reduce((min, t) => {
-      const d = parseDate(t.start);
-      return d < min ? d : min;
-    }, parseDate(trips[0].start));
+    const allDates: Date[] = [];
+    for (const t of trips) {
+      allDates.push(parseDate(t.start));
+      allDates.push(parseDate(t.end));
+    }
+    for (const v of vacations) {
+      allDates.push(parseDate(v.start));
+      allDates.push(parseDate(v.end));
+    }
 
-    const maxDate = trips.reduce((max, t) => {
-      const d = parseDate(t.end);
-      return d > max ? d : max;
-    }, parseDate(trips[0].end));
+    const minDate = allDates.reduce((min, d) => d < min ? d : min, allDates[0]);
+    const maxDate = allDates.reduce((max, d) => d > max ? d : max, allDates[0]);
 
     const start = addDays(startOfMonth(minDate), -14);
     const end = addDays(startOfMonth(addDays(maxDate, 31)), 15);
     const totalDays = diffDays(start, end) + 1;
 
     return { start, end, totalDays };
-  }, [trips, today_date]);
+  }, [trips, vacations, today_date]);
 
-  // Месяцы для заголовка
+  // Месяцы
   const months = useMemo(() => {
     const result: { label: string; left: number; width: number }[] = [];
     let current = range.start;
@@ -248,12 +330,10 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
     return result;
   }, [range]);
 
-  // Дни
   const days = useMemo(() => {
     return Array.from({ length: range.totalDays }, (_, i) => addDays(range.start, i));
   }, [range]);
 
-  // Позиция "сегодня"
   const todayOffset = useMemo(() => {
     const daysFromStart = diffDays(range.start, today_date);
     if (daysFromStart < 0 || daysFromStart > range.totalDays) return null;
@@ -271,7 +351,6 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
 
   const totalWidth = range.totalDays * PX_PER_DAY;
 
-  // Обработчик клика по плашке
   const handleTripClick = useCallback(
     (trip: Trip) => {
       if (onSelectTrip) onSelectTrip(trip);
@@ -279,28 +358,16 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
     [onSelectTrip]
   );
 
-  // Toggle completed status для объекта
   const toggleCompleted = useCallback((objectId: string) => {
     setCompletedOverrides(prev => {
       const next = new Set(prev);
-      if (next.has(objectId)) {
-        next.delete(objectId);
-      } else {
-        next.add(objectId);
-      }
+      if (next.has(objectId)) next.delete(objectId);
+      else next.add(objectId);
       return next;
     });
   }, []);
 
-  if (rows.length <= 3) {
-    return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>
-        Нет данных. Добавьте командировку, чтобы начать.
-      </div>
-    );
-  }
-
-  // Рендер строки объекта (левая колонка)
+  // === Рендер левой колонки ===
   const renderLeftRow = (row: typeof rows[0], idx: number) => {
     if (row.type === "object" && row.data) {
       const obj = row.data;
@@ -316,7 +383,14 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
             gap: 8,
             background: obj.completed ? COMPLETED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"),
             opacity: obj.completed ? 0.7 : 1,
+            cursor: "default",
           }}
+          onMouseEnter={(e) => {
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setTooltipObj(obj);
+            setTooltipPos({ top: rect.top, left: rect.right });
+          }}
+          onMouseLeave={() => setTooltipObj(null)}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
@@ -329,8 +403,19 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
             }}>
               {obj.city} — {obj.purpose}
             </div>
+            {obj.equipment && (
+              <div style={{
+                fontSize: 9,
+                color: TEXT_DIM,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                marginTop: 1,
+              }}>
+                {obj.equipment}
+              </div>
+            )}
           </div>
-          {/* Кнопка "отметить как выполненное" */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -381,25 +466,9 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
           </span>
         </div>
       );
-    } else if (row.type === "training") {
+    } else if (row.type === "vacation") {
       return (
-        <div key="training" style={{
-          height: ROW_HEIGHT,
-          borderBottom: `1px solid ${BORDER}`,
-          display: "flex",
-          alignItems: "center",
-          padding: "0 12px",
-          background: "rgba(124,58,237,0.04)",
-          borderLeft: "3px solid #7c3aed",
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed" }}>
-            📚 Обучение
-          </div>
-        </div>
-      );
-    } else if (row.type === "vacation1" || row.type === "vacation2") {
-      return (
-        <div key={row.type} style={{
+        <div key="vacation" style={{
           height: ROW_HEIGHT,
           borderBottom: `1px solid ${BORDER}`,
           display: "flex",
@@ -407,22 +476,41 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
           padding: "0 12px",
           background: "rgba(245,158,11,0.04)",
           borderLeft: "3px solid #f59e0b",
+          gap: 8,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#f59e0b" }}>
-            🌴 Отпуск
+          <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#f59e0b" }}>
+            🌴 Отпуска
           </div>
+          {onAddVacation && (
+            <button
+              onClick={onAddVacation}
+              style={{
+                padding: "3px 8px",
+                background: "rgba(245,158,11,0.15)",
+                border: "1px solid rgba(245,158,11,0.3)",
+                borderRadius: 6,
+                color: "#f59e0b",
+                fontSize: 10,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              + Добавить
+            </button>
+          )}
         </div>
       );
     }
     return null;
   };
 
-  // Рендер строки с плашками (правая часть)
+  // === Рендер правой части (плашки) ===
   const renderRightRow = (row: typeof rows[0], idx: number) => {
     if (row.type === "object" && row.data) {
       const obj = row.data;
-      // Группируем пересекающиеся командировки
       const tripGroups = groupOverlappingTrips(obj.trips, range.start);
+      const objPeriods = servicePeriods.filter(p => p.objectId === obj.id);
 
       return (
         <div
@@ -435,7 +523,7 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
             opacity: obj.completed ? 0.7 : 1,
           }}
         >
-          {/* Вертикальные линии дней */}
+          {/* Вертикальные линии */}
           {days.map((day, i) => (
             <div
               key={`vline-${i}`}
@@ -451,75 +539,68 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
             />
           ))}
 
-          {/* Маркеры начала (dim green) */}
-          {obj.startMarkers.map((marker, mi) => {
-            const markerDate = parseDate(marker.date);
-            const offset = diffDays(range.start, markerDate) * PX_PER_DAY;
-            if (offset < 0 || offset > totalWidth) return null;
+          {/* Маркеры периодов оказания услуг */}
+          {objPeriods.map((period, pi) => {
+            const pStart = parseDate(period.start);
+            const pEnd = parseDate(period.end);
+            const left = diffDays(range.start, pStart) * PX_PER_DAY;
+            const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
+
+            if (left + width < 0 || left > totalWidth) return null;
+
             return (
               <div
-                key={`start-${mi}`}
+                key={`sp-${pi}`}
                 style={{
                   position: "absolute",
-                  left: offset,
+                  top: 2,
+                  left: Math.max(left, 0),
+                  width: Math.max(width - 2, 4),
+                  height: ROW_HEIGHT - 4,
+                  background: "rgba(37, 99, 235, 0.06)",
+                  border: "1px dashed rgba(37, 99, 235, 0.25)",
+                  borderRadius: 4,
+                  zIndex: 2,
+                  pointerEvents: "none",
+                }}
+              >
+                {/* Начало */}
+                <div style={{
+                  position: "absolute",
+                  left: -1,
                   top: 0,
                   bottom: 0,
                   width: 3,
                   background: MARKER_START_COLOR,
-                  zIndex: 6,
-                  pointerEvents: "none",
-                }}
-                title={`🟢 Начало: ${marker.date}${marker.label ? " — " + marker.label : ""}`}
-              >
+                  borderRadius: "2px 0 0 2px",
+                }} />
+                {/* Конец */}
                 <div style={{
                   position: "absolute",
-                  top: 2,
-                  left: -2,
-                  width: 0,
-                  height: 0,
-                  borderTop: "5px solid transparent",
-                  borderBottom: "5px solid transparent",
-                  borderLeft: `7px solid ${MARKER_START_COLOR}`,
-                }} />
-              </div>
-            );
-          })}
-
-          {/* Маркеры окончания (dim yellow) */}
-          {obj.endMarkers.map((marker, mi) => {
-            const markerDate = parseDate(marker.date);
-            const offset = diffDays(range.start, markerDate) * PX_PER_DAY;
-            if (offset < 0 || offset > totalWidth) return null;
-            return (
-              <div
-                key={`end-${mi}`}
-                style={{
-                  position: "absolute",
-                  left: offset,
+                  right: -1,
                   top: 0,
                   bottom: 0,
                   width: 3,
                   background: MARKER_END_COLOR,
-                  zIndex: 6,
-                  pointerEvents: "none",
-                }}
-                title={`🟡 Окончание: ${marker.date}${marker.label ? " — " + marker.label : ""}`}
-              >
+                  borderRadius: "0 2px 2px 0",
+                }} />
+                {/* Номер периода */}
                 <div style={{
                   position: "absolute",
-                  bottom: 2,
-                  left: -2,
-                  width: 0,
-                  height: 0,
-                  borderTop: "5px solid transparent",
-                  borderBottom: "5px solid transparent",
-                  borderLeft: `7px solid ${MARKER_END_COLOR}`,
-                }} />
+                  top: 1,
+                  left: 3,
+                  fontSize: 7,
+                  fontWeight: 700,
+                  color: "rgba(37,99,235,0.5)",
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}>
+                  {pi + 1}
+                </div>
               </div>
             );
           })}
 
-          {/* Плашки групп командировок */}
+          {/* Плашки командировок */}
           {tripGroups.map((group, gi) => {
             const displayName = group.specialistNames.length <= 3
               ? group.specialistNames.join(", ")
@@ -564,7 +645,9 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
                   (e.target as HTMLElement).style.transform = "scale(1)";
                   (e.target as HTMLElement).style.zIndex = "4";
                 }}
-                title={group.trips.map(t => `${t.specialistId}: ${t.start} → ${t.end}`).join("\n")}
+                title={group.trips.map(t =>
+                  `${t.specialistIds.join(", ")}: ${t.start} → ${t.end}`
+                ).join("\n")}
               >
                 <span style={{
                   whiteSpace: "nowrap",
@@ -580,7 +663,88 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
       );
     }
 
-    // Специальные строки
+    // Строка отпусков — отображаем плашки
+    if (row.type === "vacation") {
+      return (
+        <div
+          key="vacation"
+          style={{
+            height: ROW_HEIGHT,
+            borderBottom: `1px solid ${BORDER}`,
+            position: "relative",
+            background: "transparent",
+          }}
+        >
+          {days.map((day, i) => (
+            <div
+              key={`vline-vac-${i}`}
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: i * PX_PER_DAY,
+                width: 1,
+                background: "rgba(0,0,0,0.02)",
+                pointerEvents: "none",
+              }}
+            />
+          ))}
+
+          {/* Плашки отпусков */}
+          {vacations.map((vac) => {
+            const vacStart = parseDate(vac.start);
+            const vacEnd = parseDate(vac.end);
+            const left = diffDays(range.start, vacStart) * PX_PER_DAY;
+            const width = (diffDays(vacStart, vacEnd) + 1) * PX_PER_DAY;
+            const color = getSpecialistColor(specialists, vac.specialistId);
+            const spec = specialists.find(s => s.id === vac.specialistId);
+
+            if (left + width < 0 || left > totalWidth) return null;
+
+            return (
+              <div
+                key={vac.id}
+                style={{
+                  position: "absolute",
+                  top: 8,
+                  left: Math.max(left, 0),
+                  width: Math.max(width - 2, PX_PER_DAY),
+                  height: ROW_HEIGHT - 16,
+                  background: color,
+                  border: "none",
+                  borderRadius: 5,
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 600,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 4px",
+                  overflow: "hidden",
+                  boxShadow: `0 2px 4px ${color}30`,
+                  cursor: "pointer",
+                  zIndex: 4,
+                  opacity: 0.85,
+                }}
+                title={`🌴 ${spec?.name || vac.specialistId}: ${vac.start} → ${vac.end}`}
+                onClick={() => {
+                  if (onDeleteVacation && confirm(`Удалить отпуск ${spec?.name || vac.specialistId}?`)) {
+                    onDeleteVacation(vac.id);
+                  }
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  🌴 {spec?.name || vac.specialistId}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Fallback
     return (
       <div
         key={row.type}
@@ -591,10 +755,9 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
           background: "transparent",
         }}
       >
-        {/* Вертикальные линии для специальных строк тоже */}
         {days.map((day, i) => (
           <div
-            key={`vline-spec-${i}`}
+            key={`vline-fb-${i}`}
             style={{
               position: "absolute",
               top: 0,
@@ -610,9 +773,26 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
     );
   };
 
+  if (rows.length <= 1) {
+    return (
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>
+        Нет данных. Добавьте командировку, чтобы начать.
+      </div>
+    );
+  }
+
   return (
     <div style={{ flex: 1, overflow: "hidden", background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      {/* Основной контейнер с горизонтальным и вертикальным скроллом */}
+      {/* Тултип */}
+      {tooltipObj && (
+        <ObjectTooltip
+          obj={tooltipObj}
+          servicePeriods={servicePeriods}
+          position={tooltipPos}
+        />
+      )}
+
+      {/* Основной скролл-контейнер */}
       <div
         ref={scrollContainerRef}
         style={{
@@ -623,8 +803,9 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
         }}
       >
         <div style={{ display: "flex", minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* ===== ФИКСИРОВАННАЯ ЛЕВАЯ КОЛОНКА ===== */}
+          {/* === ФИКСИРОВАННАЯ ЛЕВАЯ КОЛОНКА === */}
           <div
+            ref={leftColRef}
             style={{
               position: "sticky",
               left: 0,
@@ -636,7 +817,7 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
               borderRight: `1px solid ${BORDER}`,
             }}
           >
-            {/* Заголовок левой колонки (sticky top) */}
+            {/* Заголовок левой колонки */}
             <div
               style={{
                 height: HEADER_HEIGHT,
@@ -649,7 +830,7 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
                 color: TEXT_DIM,
                 letterSpacing: "0.5px",
                 textTransform: "uppercase",
-                background: "rgba(255,255,255,0.85)",
+                background: "rgba(255,255,255,0.92)",
                 position: "sticky",
                 top: 0,
                 zIndex: 15,
@@ -658,15 +839,24 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
               Объект — Вид работ
             </div>
 
-            {/* Строки объектов */}
             {rows.map((row, idx) => renderLeftRow(row, idx))}
           </div>
 
-          {/* ===== ПРОКРУЧИВАЕМАЯ ОБЛАСТЬ С ТАЙМЛАЙНОМ ===== */}
+          {/* === ПРОКРУЧИВАЕМЫЙ ТАЙМЛАЙН === */}
           <div style={{ position: "relative", width: totalWidth }}>
-            {/* Заголовок: месяцы + дни (sticky top — год и дни недели всегда видны) */}
-            <div style={{ height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "sticky", top: 0, zIndex: 5, background: "rgba(255,255,255,0.85)", backdropFilter: "blur(16px)" }}>
-              {/* Месяцы с годом */}
+            {/* STICKY HEADER — месяцы и дни */}
+            <div
+              style={{
+                height: HEADER_HEIGHT,
+                borderBottom: `1px solid ${BORDER}`,
+                position: "sticky",
+                top: 0,
+                zIndex: 12,
+                background: "rgba(255,255,255,0.92)",
+                backdropFilter: "blur(16px)",
+              }}
+            >
+              {/* Месяцы */}
               <div style={{ height: 28, position: "relative" }}>
                 {months.map((m, i) => (
                   <div
@@ -726,9 +916,9 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
               </div>
             </div>
 
-            {/* Область со строками */}
+            {/* Область строк */}
             <div style={{ position: "relative" }}>
-              {/* Линия "сегодня" */}
+              {/* Линия «сегодня» */}
               {todayOffset !== null && (
                 <div
                   style={{
@@ -755,7 +945,6 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
                 </div>
               )}
 
-              {/* Строки */}
               {rows.map((row, idx) => renderRightRow(row, idx))}
             </div>
           </div>
@@ -784,12 +973,12 @@ export function Timeline({ specialists, trips, serviceMarkers = [], onSelectTrip
           <span>Командировка</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ width: 3, height: 10, background: MARKER_START_COLOR, borderRadius: 1 }} />
-          <span>Начало услуг</span>
+          <div style={{ width: 16, height: 10, borderRadius: 3, background: "rgba(37,99,235,0.1)", border: "1px dashed rgba(37,99,235,0.4)" }} />
+          <span>Период услуг</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div style={{ width: 3, height: 10, background: MARKER_END_COLOR, borderRadius: 1 }} />
-          <span>Окончание услуг</span>
+          <div style={{ width: 18, height: 10, borderRadius: 3, background: VACATION_BAR_COLOR }} />
+          <span>Отпуск</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} />
