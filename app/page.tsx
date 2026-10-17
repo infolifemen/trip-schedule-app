@@ -1,62 +1,52 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Specialist, Trip } from '../lib/types'
-import { Storage } from '../lib/storage'
-import { SEED_DATA } from '../lib/seed-data'
+import { Specialist, Trip, AppData } from '../lib/types'
+import { loadData, saveTrip, deleteTrip, saveSpecialist, resetData } from '../lib/storage'
+import { SEED_DATA } from '../lib/data'
 import { Header } from '../components/Header'
 import { Timeline } from '../components/Timeline'
-import { Filters } from '../components/Filters'
-import { TripModal } from '../components/TripModal'
-import { Legend } from '../components/Legend'
-
-interface AppData {
-  specialists: Specialist[]
-  trips: Trip[]
-}
+import { FilterChips } from '../components/FilterChips'
+import { AddTripModal } from '../components/AddTripModal'
+import { TripDetailsModal } from '../components/TripDetailsModal'
 
 export default function Home() {
   const [data, setData] = useState<AppData>({ specialists: [], trips: [] })
   const [filteredTrips, setFilteredTrips] = useState<Trip[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [specialistFilter, setSpecialistFilter] = useState<string>('')
-  const [monthFilter, setMonthFilter] = useState<string>('')
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [specialistFilter, setSpecialistFilter] = useState<string | null>(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const authChecked = useRef(false)
 
-  // CRITICAL: Check auth BEFORE rendering anything
+  // Check auth BEFORE rendering anything
   useEffect(() => {
     if (authChecked.current) return
     authChecked.current = true
 
     const isAuth = localStorage.getItem('trip_schedule_auth')
     if (isAuth !== 'true') {
-      // Hard redirect - works even if JS partially loaded
       window.location.replace('/login')
       return
     }
 
-    // Auth OK - load data
-    loadData()
+    loadDataFromStorage()
   }, [])
 
-  const loadData = async () => {
+  const loadDataFromStorage = async () => {
     try {
-      const stored = await Storage.loadData()
+      const stored = await loadData()
       if (stored) {
         setData(stored)
         setFilteredTrips(stored.trips)
       } else {
-        // Use seed data as fallback
         setData(SEED_DATA)
         setFilteredTrips(SEED_DATA.trips)
-        await Storage.saveData(SEED_DATA)
       }
     } catch (error) {
       console.error('Failed to load data:', error)
-      // Fallback to seed data
       setData(SEED_DATA)
       setFilteredTrips(SEED_DATA.trips)
     } finally {
@@ -75,9 +65,10 @@ export default function Home() {
       filtered = filtered.filter(trip => {
         const specialist = data.specialists.find(s => s.id === trip.specialistId)
         const specialistName = specialist ? specialist.name.toLowerCase() : ''
-        const location = trip.location.toLowerCase()
-        const comment = trip.comment?.toLowerCase() || ''
-        return specialistName.includes(query) || location.includes(query) || comment.includes(query)
+        const city = trip.city.toLowerCase()
+        const purpose = trip.purpose?.toLowerCase() || ''
+        const note = trip.note?.toLowerCase() || ''
+        return specialistName.includes(query) || city.includes(query) || purpose.includes(query) || note.includes(query)
       })
     }
 
@@ -85,48 +76,66 @@ export default function Home() {
       filtered = filtered.filter(trip => trip.specialistId === specialistFilter)
     }
 
-    if (monthFilter) {
-      filtered = filtered.filter(trip => {
-        const tripMonth = trip.startDate.substring(0, 7) // YYYY-MM
-        return tripMonth === monthFilter
-      })
-    }
-
     setFilteredTrips(filtered)
-  }, [data.trips, searchQuery, specialistFilter, monthFilter, data.specialists])
+  }, [data.trips, searchQuery, specialistFilter, data.specialists])
+
+  // Calculate trip count by specialist
+  const tripCountBySpecialist = data.specialists.reduce((acc, s) => {
+    acc[s.id] = data.trips.filter(t => t.specialistId === s.id).length
+    return acc
+  }, {} as Record<string, number>)
 
   const handleAddTrip = () => {
     setEditingTrip(null)
-    setIsModalOpen(true)
+    setIsAddModalOpen(true)
   }
 
-  const handleEditTrip = (trip: Trip) => {
-    setEditingTrip(trip)
-    setIsModalOpen(true)
+  const handleSelectTrip = (trip: Trip) => {
+    setSelectedTrip(trip)
   }
 
-  const handleDeleteTrip = async (tripId: string) => {
-    if (!confirm('Удалить эту командировку?')) return
-
-    const updatedTrips = data.trips.filter(t => t.id !== tripId)
-    const updatedData = { ...data, trips: updatedTrips }
-    setData(updatedData)
-    await Storage.saveData(updatedData)
+  const handleEditTrip = () => {
+    if (selectedTrip) {
+      setEditingTrip(selectedTrip)
+      setIsAddModalOpen(true)
+      setSelectedTrip(null)
+    }
   }
 
-  const handleSaveTrip = async (trip: Trip) => {
+  const handleDeleteTrip = async () => {
+    if (selectedTrip) {
+      await deleteTrip(selectedTrip.id)
+      const updatedTrips = data.trips.filter(t => t.id !== selectedTrip.id)
+      const updatedData = { ...data, trips: updatedTrips }
+      setData(updatedData)
+      setSelectedTrip(null)
+    }
+  }
+
+  const handleSaveTrip = async (trip: Trip, newSpecialist?: Omit<Specialist, 'color'>) => {
+    // Save specialist if new
+    if (newSpecialist) {
+      const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444', '#84cc16', '#a855f7', '#f97316']
+      const colorIndex = data.specialists.length % colors.length
+      const specialist: Specialist = { ...newSpecialist, color: colors[colorIndex] }
+      await saveSpecialist(specialist)
+      const updatedSpecialists = [...data.specialists, specialist]
+      setData({ ...data, specialists: updatedSpecialists, trips: data.trips })
+    }
+
+    // Save trip
+    await saveTrip(trip)
+    
+    // Update local state
     let updatedTrips: Trip[]
-
     if (editingTrip) {
       updatedTrips = data.trips.map(t => t.id === trip.id ? trip : t)
     } else {
       updatedTrips = [...data.trips, trip]
     }
-
-    const updatedData = { ...data, trips: updatedTrips }
-    setData(updatedData)
-    await Storage.saveData(updatedData)
-    setIsModalOpen(false)
+    setData({ ...data, trips: updatedTrips })
+    setIsAddModalOpen(false)
+    setEditingTrip(null)
   }
 
   const handleExport = () => {
@@ -141,34 +150,25 @@ export default function Home() {
   }
 
   const handleImport = async () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = '.json'
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
-
-      try {
-        const text = await file.text()
-        const imported = JSON.parse(text) as AppData
+    try {
+      const stored = localStorage.getItem('trip-schedule-import')
+      if (stored) {
+        const imported = JSON.parse(stored) as AppData
         if (imported.specialists && imported.trips) {
           setData(imported)
-          await Storage.saveData(imported)
+          localStorage.setItem('trip_schedule_data', JSON.stringify(imported))
           alert('Данные успешно импортированы!')
         } else {
           alert('Неверный формат файла')
         }
-      } catch (error) {
-        alert('Ошибка при импорте файла')
       }
+    } catch (error) {
+      alert('Ошибка при импорте файла')
     }
-    input.click()
   }
 
   const handleReset = async () => {
-    if (!confirm('Сбросить все данные к начальному состоянию? Это действие нельзя отменить.')) return
-
-    await Storage.resetData()
+    await resetData()
     setData(SEED_DATA)
     setFilteredTrips(SEED_DATA.trips)
     alert('Данные сброшены к начальному состоянию')
@@ -187,7 +187,6 @@ export default function Home() {
       }}>
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '24px', color: '#1a1a1a' }}>Загрузка...</h1>
-          {/* Fallback redirect if JS doesn't execute */}
           <noscript>
             <meta httpEquiv="refresh" content="0;url=/login" />
           </noscript>
@@ -210,33 +209,71 @@ export default function Home() {
         specialistCount={data.specialists.length}
       />
 
-      <main style={{ maxWidth: '100%', margin: '0 auto', padding: '24px' }}>
-        <Filters
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          specialistFilter={specialistFilter}
-          onSpecialistFilterChange={setSpecialistFilter}
-          monthFilter={monthFilter}
-          onMonthFilterChange={setMonthFilter}
+      <main style={{ maxWidth: '100%', margin: '0 auto' }}>
+        {/* Search bar */}
+        <div style={{
+          padding: '12px 24px',
+          background: 'rgba(255,255,255,0.36)',
+          backdropFilter: 'blur(8px)',
+          borderBottom: '1px solid rgba(0,0,0,0.06)',
+        }}>
+          <input
+            type="text"
+            placeholder="Поиск по объекту, специалисту, виду работ..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid rgba(0,0,0,0.1)',
+              fontSize: 13,
+              fontFamily: "'Inter', sans-serif",
+              outline: 'none',
+            }}
+          />
+        </div>
+
+        {/* Filter chips */}
+        <FilterChips
           specialists={data.specialists}
+          selected={specialistFilter}
+          onSelect={setSpecialistFilter}
+          tripCountBySpecialist={tripCountBySpecialist}
         />
 
-        <Timeline
-          specialists={data.specialists}
-          trips={filteredTrips}
-          onEditTrip={handleEditTrip}
-          onDeleteTrip={handleDeleteTrip}
-        />
-
-        <Legend />
+        {/* Timeline */}
+        <div style={{ height: 'calc(100vh - 200px)' }}>
+          <Timeline
+            specialists={data.specialists}
+            trips={filteredTrips}
+            serviceMarkers={data.serviceMarkers}
+            onSelectTrip={handleSelectTrip}
+          />
+        </div>
       </main>
 
-      {isModalOpen && (
-        <TripModal
-          trip={editingTrip}
+      {/* Add/Edit Modal */}
+      {isAddModalOpen && (
+        <AddTripModal
           specialists={data.specialists}
+          initialTrip={editingTrip}
           onSave={handleSaveTrip}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsAddModalOpen(false)
+            setEditingTrip(null)
+          }}
+        />
+      )}
+
+      {/* Trip Details Modal */}
+      {selectedTrip && (
+        <TripDetailsModal
+          trip={selectedTrip}
+          specialist={data.specialists.find(s => s.id === selectedTrip.specialistId)}
+          onClose={() => setSelectedTrip(null)}
+          onEdit={handleEditTrip}
+          onDelete={handleDeleteTrip}
         />
       )}
     </div>
