@@ -1,20 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Пропускаем статические файлы
+  const { pathname } = request.nextUrl
+  
+  // Пропускаем статические файлы и Next.js внутренние запросы
   if (
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/favicon.ico') ||
-    request.nextUrl.pathname.match(/\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$/)
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2|ttf|eot)$/)
   ) {
     return NextResponse.next()
   }
 
-  // Basic Auth для всего сайта
+  // Basic Auth только для HTML страниц (не для API или статики)
   const authHeader = request.headers.get('authorization')
   
   // Пароль из env vars (Vercel Settings → Environment Variables)
-  const password = process.env.SITE_PASSWORD || 'default123'
+  const password = process.env.SITE_PASSWORD || 'grafik2026'
   const username = process.env.SITE_USERNAME || 'admin'
   
   if (authHeader) {
@@ -36,13 +39,20 @@ export async function middleware(request: NextRequest) {
   return new Response('Authentication Required', {
     status: 401,
     headers: {
-      'WWW-Authenticate': 'Basic realm="Trip Schedule App", charset="UTF-8"',
+      'WWW-Authenticate': `Basic realm="График командировок", charset="UTF-8"`,
     },
   })
 }
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (svg, png, jpg, etc.)
+     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
   ],
 }
