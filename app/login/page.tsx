@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 
-// Простой пароль (можно изменить через env vars в Vercel)
-const SITE_PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026'
-
 export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -18,23 +15,34 @@ export default function LoginPage() {
     const isAuth = localStorage.getItem('trip_schedule_auth')
     if (isAuth === 'true') {
       redirectedRef.current = true
-      // Используем window.location для надёжного redirect
       window.location.href = '/'
     }
-  }, []) // Пустые зависимости — выполняется только при монтировании
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    // Простая проверка пароля
-    if (password === SITE_PASSWORD) {
-      localStorage.setItem('trip_schedule_auth', 'true')
-      // Используем window.location для надёжного redirect
-      window.location.href = '/'
-    } else {
-      setError('Неверный пароль')
+    try {
+      // Отправляем пароль на сервер для проверки
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        localStorage.setItem('trip_schedule_auth', 'true')
+        window.location.href = '/'
+      } else {
+        setError(data.error || 'Неверный пароль')
+        setLoading(false)
+      }
+    } catch (err) {
+      setError('Ошибка соединения с сервером')
       setLoading(false)
     }
   }
