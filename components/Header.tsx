@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Download, Upload, RotateCcw } from "lucide-react";
+import { Plus, Download, Upload, RotateCcw, Archive, ArchiveRestore } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 
 interface HeaderProps {
@@ -8,8 +8,12 @@ interface HeaderProps {
   onExport: () => void;
   onImport: () => void;
   onReset: () => void;
+  onArchiveClick: () => void;
+  showArchived: boolean;
+  onToggleArchived: () => void;
   tripCount: number;
   specialistCount: number;
+  archivedCount: number;
 }
 
 export function Header({
@@ -17,9 +21,26 @@ export function Header({
   onExport,
   onImport,
   onReset,
+  onArchiveClick,
+  showArchived,
+  onToggleArchived,
   tripCount,
   specialistCount,
+  archivedCount,
 }: HeaderProps) {
+  const btnStyle: React.CSSProperties = {
+    padding: 8,
+    background: "rgba(0,0,0,0.04)",
+    border: "1px solid rgba(0,0,0,0.06)",
+    borderRadius: 8,
+    color: "#5a5a72",
+    cursor: "pointer",
+    transition: "all 0.15s ease",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
   return (
     <header
       style={{
@@ -46,10 +67,12 @@ export function Header({
           </h1>
           <p style={{ fontSize: 12, color: "#5a5a72", marginTop: 4, margin: 0 }}>
             {specialistCount} специалистов · {tripCount} командировок
+            {archivedCount > 0 && <span> · {archivedCount} в архиве</span>}
           </p>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Кнопка Добавить */}
           <button
             onClick={onAddTrip}
             style={{
@@ -69,52 +92,90 @@ export function Header({
               fontFamily: "inherit",
             }}
             onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.background = "#1d4ed8";
-              (e.target as HTMLElement).style.transform = "scale(1.02)";
+              (e.currentTarget).style.background = "#1d4ed8";
+              (e.currentTarget).style.transform = "scale(1.02)";
             }}
             onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.background = "#2563eb";
-              (e.target as HTMLElement).style.transform = "scale(1)";
+              (e.currentTarget).style.background = "#2563eb";
+              (e.currentTarget).style.transform = "scale(1)";
             }}
           >
             <Plus size={16} />
             Добавить
           </button>
 
+          {/* Кнопка В архив */}
+          <button
+            onClick={onArchiveClick}
+            title="Архивировать объекты"
+            style={{
+              ...btnStyle,
+              gap: 6,
+              padding: "8px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.08)"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; }}
+          >
+            <Archive size={14} />
+            В архив
+          </button>
+
+          {/* Переключатель Активные / Архив */}
+          <button
+            onClick={onToggleArchived}
+            title={showArchived ? "Показать активные" : "Показать архив"}
+            style={{
+              ...btnStyle,
+              gap: 6,
+              padding: "8px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: showArchived ? "rgba(245,158,11,0.15)" : "rgba(0,0,0,0.04)",
+              border: showArchived ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(0,0,0,0.06)",
+              color: showArchived ? "#f59e0b" : "#5a5a72",
+            }}
+            onMouseEnter={(e) => {
+              if (!showArchived) (e.currentTarget).style.background = "rgba(0,0,0,0.08)";
+            }}
+            onMouseLeave={(e) => {
+              if (!showArchived) (e.currentTarget).style.background = "rgba(0,0,0,0.04)";
+            }}
+          >
+            {showArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
+            {showArchived ? "Активные" : "Архив"}
+            {archivedCount > 0 && !showArchived && (
+              <span style={{
+                background: "rgba(245,158,11,0.2)",
+                color: "#d97706",
+                fontSize: 10,
+                fontWeight: 700,
+                padding: "1px 6px",
+                borderRadius: 10,
+                minWidth: 16,
+                textAlign: "center",
+              }}>
+                {archivedCount}
+              </span>
+            )}
+          </button>
+
+          {/* Экспорт */}
           <button
             onClick={onExport}
             title="Экспорт JSON"
-            style={{
-              padding: 8,
-              background: "rgba(0,0,0,0.04)",
-              border: "1px solid rgba(0,0,0,0.06)",
-              borderRadius: 8,
-              color: "#5a5a72",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.04)";
-            }}
+            style={btnStyle}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.08)"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; }}
           >
             <Download size={16} />
           </button>
 
+          {/* Импорт */}
           <label
             title="Импорт JSON"
-            style={{
-              padding: 8,
-              background: "rgba(0,0,0,0.04)",
-              border: "1px solid rgba(0,0,0,0.06)",
-              borderRadius: 8,
-              color: "#5a5a72",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              display: "inline-flex",
-            }}
+            style={{ ...btnStyle, cursor: "pointer" }}
           >
             <Upload size={16} />
             <input
@@ -141,6 +202,7 @@ export function Header({
             />
           </label>
 
+          {/* Сброс */}
           <button
             onClick={() => {
               if (confirm("Сбросить все данные и вернуть демо-данные?")) {
@@ -148,21 +210,9 @@ export function Header({
               }
             }}
             title="Сброс к демо-данным"
-            style={{
-              padding: 8,
-              background: "rgba(0,0,0,0.04)",
-              border: "1px solid rgba(0,0,0,0.06)",
-              borderRadius: 8,
-              color: "#5a5a72",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.08)";
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLElement).style.background = "rgba(0,0,0,0.04)";
-            }}
+            style={btnStyle}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.08)"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; }}
           >
             <RotateCcw size={16} />
           </button>
