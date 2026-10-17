@@ -1,102 +1,298 @@
-import type { AppData, Specialist, Trip } from "./types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation } from "./types";
 import { SEED_DATA } from "./data";
+import { createClient } from "./supabase-browser";
 
-const STORAGE_KEY = "trip_schedule_data";
+const CACHE_KEY = "trip-schedule-cache";
 
-// === Загрузка всех данных из localStorage ===
+// === Загрузка всех данных из Supabase ===
 export async function loadData(): Promise<AppData> {
   try {
-    // Небольшая задержка для имитации асинхронности (не обязательно)
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
-    const stored = localStorage.getItem(STORAGE_KEY);
-    
-    if (!stored) {
-      // Первый запуск — сохраняем SEED_DATA в localStorage
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
+    const supabase = createClient();
+
+    const results = await Promise.allSettled([
+      supabase.from("specialists").select("*").order("id"),
+      supabase.from("trips").select("*").order("start_date"),
+      supabase.from("service_periods").select("*"),
+      supabase.from("vacations").select("*"),
+    ]);
+
+    const specs = results[0].status === "fulfilled" ? results[0].value : null;
+    const tripsRes = results[1].status === "fulfilled" ? results[1].value : null;
+    const spRes = results[2].status === "fulfilled" ? results[2].value : null;
+    const vacRes = results[3].status === "fulfilled" ? results[3].value : null;
+
+    // Если есть критическая ошибка — кеш/seed
+    if (specs?.error || tripsRes?.error) {
+      console.warn("Supabase ошибка, используем кеш/seed:", specs?.error || tripsRes?.error);
+      return loadFromCacheOrSeed();
+    }
+
+    const specialists: Specialist[] = (specs?.data || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+    }));
+
+    // Парсим trips с обратной совместимостью
+    const tripsList: Trip[] = (tripsRes?.data || []).map((t: any) => {
+      let specialistIds: string[];
+      if (t.specialist_ids) {
+        try {
+          specialistIds = JSON.parse(t.specialist_ids);
+          if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
+        } catch {
+          specialistIds = t.specialist_id ? [t.specialist_id] : [];
+        }
+      } else if (t.specialist_id) {
+        specialistIds = [t.specialist_id];
+      } else {
+        specialistIds = [];
+      }
+
+      return {
+        id: t.id,
+        specialistIds,
+        city: t.city,
+        purpose: t.purpose,
+        equipment: t.equipment || undefined,
+        start: t.start_date,
+        end: t.end_date,
+        note: t.note || undefined,
+      };
+    });
+
+    const servicePeriods: ServicePeriod[] = (spRes?.data || []).map((sp: any) => ({
+      id: sp.id,
+      objectId: sp.object_id,
+      start: sp.start_date,
+      end: sp.end_date,
+    }));
+
+    const vacations: Vacation[] = (vacRes?.data || []).map((v: any) => ({
+      id: v.id,
+      specialistId: v.specialist_id,
+      start: v.start_date,
+      end: v.end_date,
+    }));
+
+    // Если база пуста — сидируем
+    if (specialists.length === 0 && tripsList.length === 0) {
+      await seedInitialData().catch(() => {});
+      const fresh = await loadDataFromSupabase(supabase);
+      if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
+        saveToCache(fresh);
+        return fresh;
+      }
+      saveToCache(SEED_DATA);
       return SEED_DATA;
     }
-    
-    const parsed = JSON.parse(stored) as AppData;
-    
-    // Валидация данных
-    if (!parsed.specialists || !parsed.trips) {
-      console.warn("Данные в localStorage повреждены, используем SEED_DATA");
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
-      return SEED_DATA;
-    }
-    
-    return parsed;
+
+    const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations };
+    saveToCache(result);
+    return result;
   } catch (e) {
     console.error("Ошибка загрузки данных:", e);
-    // В случае ошибки — возвращаем SEED_DATA
-    return SEED_DATA;
+    return loadFromCacheOrSeed();
   }
 }
 
-// === Сохранение данных в localStorage ===
-function saveToStorage(data: AppData): void {
+async function loadDataFromSupabase(supabase: ReturnType<typeof createClient>): Promise<AppData | null> {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error("Ошибка сохранения в localStorage:", e);
-  }
-}
+    const results = await Promise.all([
+      supabase.from("specialists").select("*").order("id"),
+      supabase.from("trips").select("*").order("start_date"),
+      supabase.from("service_periods").select("*"),
+      supabase.from("vacations").select("*"),
+    ]);
 
-// === Получение текущих данных ===
-function getCurrentData(): AppData {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return SEED_DATA;
-    return JSON.parse(stored) as AppData;
+    if (results[0].error || results[1].error) return null;
+
+    const specialists: Specialist[] = (results[0].data || []).map((s: any) => ({
+      id: s.id, name: s.name, color: s.color,
+    }));
+
+    const trips: Trip[] = (results[1].data || []).map((t: any) => {
+      let specialistIds: string[];
+      if (t.specialist_ids) {
+        try {
+          specialistIds = JSON.parse(t.specialist_ids);
+          if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
+        } catch {
+          specialistIds = t.specialist_id ? [t.specialist_id] : [];
+        }
+      } else if (t.specialist_id) {
+        specialistIds = [t.specialist_id];
+      } else {
+        specialistIds = [];
+      }
+      return {
+        id: t.id, specialistIds, city: t.city, purpose: t.purpose,
+        equipment: t.equipment || undefined, start: t.start_date, end: t.end_date, note: t.note || undefined,
+      };
+    });
+
+    const servicePeriods: ServicePeriod[] = (results[2].data || []).map((sp: any) => ({
+      id: sp.id, objectId: sp.object_id, start: sp.start_date, end: sp.end_date,
+    }));
+
+    const vacations: Vacation[] = (results[3].data || []).map((v: any) => ({
+      id: v.id, specialistId: v.specialist_id, start: v.start_date, end: v.end_date,
+    }));
+
+    return { specialists, trips, servicePeriods, vacations };
   } catch {
-    return SEED_DATA;
+    return null;
   }
 }
 
-// === Сохранение командировки (создание или обновление) ===
+// === Кеш ===
+function saveToCache(data: AppData): void {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+function loadFromCacheOrSeed(): AppData {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached) as AppData;
+      if (parsed.specialists && parsed.trips) {
+        // Миграция старых данных: specialistId → specialistIds
+        if (parsed.trips.some((t: any) => t.specialistId && !t.specialistIds)) {
+          parsed.trips = parsed.trips.map((t: any) => ({
+            ...t,
+            specialistIds: t.specialistIds || [t.specialistId],
+          }));
+        }
+        return parsed;
+      }
+    }
+  } catch {}
+  return SEED_DATA;
+}
+
+// === Сидирование ===
+async function seedInitialData(): Promise<void> {
+  const supabase = createClient();
+
+  await supabase.from("specialists").insert(
+    SEED_DATA.specialists.map((s) => ({ id: s.id, name: s.name, color: s.color }))
+  ).then(r => { if (r.error) console.warn("Seed specialists error:", r.error.message); });
+
+  await supabase.from("trips").insert(
+    SEED_DATA.trips.map((t) => ({
+      id: t.id,
+      specialist_id: t.specialistIds[0] || "",
+      specialist_ids: JSON.stringify(t.specialistIds),
+      city: t.city,
+      purpose: t.purpose,
+      equipment: t.equipment || "",
+      start_date: t.start,
+      end_date: t.end,
+      note: t.note || "",
+    }))
+  ).then(r => { if (r.error) console.warn("Seed trips error:", r.error.message); });
+
+  await supabase.from("service_periods").insert(
+    (SEED_DATA.servicePeriods || []).map((sp) => ({
+      id: sp.id, object_id: sp.objectId, start_date: sp.start, end_date: sp.end,
+    }))
+  ).then(r => { if (r.error) console.warn("Seed service_periods error:", r.error.message); });
+
+  await supabase.from("vacations").insert(
+    (SEED_DATA.vacations || []).map((v) => ({
+      id: v.id, specialist_id: v.specialistId, start_date: v.start, end_date: v.end,
+    }))
+  ).then(r => { if (r.error) console.warn("Seed vacations error:", r.error.message); });
+}
+
+// === Сохранение командировки ===
 export async function saveTrip(trip: Trip): Promise<void> {
-  const data = getCurrentData();
-  const existingIdx = data.trips.findIndex(t => t.id === trip.id);
-  
-  if (existingIdx >= 0) {
-    // Обновление существующей
-    data.trips[existingIdx] = trip;
-  } else {
-    // Создание новой
-    data.trips.push(trip);
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from("trips").upsert({
+      id: trip.id,
+      specialist_id: trip.specialistIds[0] || "",
+      specialist_ids: JSON.stringify(trip.specialistIds),
+      city: trip.city,
+      purpose: trip.purpose,
+      equipment: trip.equipment || "",
+      start_date: trip.start,
+      end_date: trip.end,
+      note: trip.note || "",
+    });
+    if (error) console.warn("saveTrip error:", error.message);
+  } catch (e) {
+    console.warn("saveTrip catch:", e);
   }
-  
-  saveToStorage(data);
 }
 
 // === Удаление командировки ===
 export async function deleteTrip(tripId: string): Promise<void> {
-  const data = getCurrentData();
-  data.trips = data.trips.filter(t => t.id !== tripId);
-  saveToStorage(data);
+  try {
+    const supabase = createClient();
+    await supabase.from("trips").delete().eq("id", tripId);
+  } catch {}
 }
 
-// === Сохранение нового специалиста ===
+// === Сохранение специалиста ===
 export async function saveSpecialist(specialist: Specialist): Promise<void> {
-  const data = getCurrentData();
-  const existingIdx = data.specialists.findIndex(s => s.id === specialist.id);
-  
-  if (existingIdx >= 0) {
-    data.specialists[existingIdx] = specialist;
-  } else {
-    data.specialists.push(specialist);
+  try {
+    const supabase = createClient();
+    await supabase.from("specialists").upsert({
+      id: specialist.id, name: specialist.name, color: specialist.color,
+    });
+  } catch {}
+}
+
+// === Сохранение периодов оказания услуг для объекта ===
+export async function saveServicePeriods(objectId: string, periods: ServicePeriod[]): Promise<void> {
+  try {
+    const supabase = createClient();
+    // Удаляем старые периоды для этого объекта
+    await supabase.from("service_periods").delete().eq("object_id", objectId);
+    // Вставляем новые
+    if (periods.length > 0) {
+      const { error } = await supabase.from("service_periods").insert(
+        periods.map((p) => ({
+          id: p.id, object_id: p.objectId, start_date: p.start, end_date: p.end,
+        }))
+      );
+      if (error) console.warn("saveServicePeriods error:", error.message);
+    }
+  } catch (e) {
+    console.warn("saveServicePeriods catch:", e);
   }
-  
-  saveToStorage(data);
 }
 
-// === Сброс данных к начальному состоянию ===
-export async function resetData(): Promise<void> {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
+// === Сохранение отпуска ===
+export async function saveVacation(vacation: Vacation): Promise<void> {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase.from("vacations").upsert({
+      id: vacation.id,
+      specialist_id: vacation.specialistId,
+      start_date: vacation.start,
+      end_date: vacation.end,
+    });
+    if (error) console.warn("saveVacation error:", error.message);
+  } catch (e) {
+    console.warn("saveVacation catch:", e);
+  }
 }
 
-// === Legacy: для обратной совместимости ===
+// === Удаление отпуска ===
+export async function deleteVacation(vacationId: string): Promise<void> {
+  try {
+    const supabase = createClient();
+    await supabase.from("vacations").delete().eq("id", vacationId);
+  } catch {}
+}
+
+// === Legacy ===
 export function clearData(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(CACHE_KEY);
+  } catch {}
 }
