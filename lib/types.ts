@@ -6,44 +6,53 @@ export interface Specialist {
 
 export interface Trip {
   id: string;
-  specialistId: string;
-  city: string;        // объект
-  purpose: string;     // вид работ (КДО, ТИ, ЧР, ВД, ОБТК...)
-  start: string;       // YYYY-MM-DD
-  end: string;         // YYYY-MM-DD
+  specialistIds: string[];   // 1-3 специалиста на командировку
+  city: string;              // объект
+  purpose: string;           // вид работ (КДО, ТИ, ЧР, ВД, ОБТК...)
+  equipment?: string;        // вид оборудования
+  start: string;             // YYYY-MM-DD
+  end: string;               // YYYY-MM-DD
   note?: string;
 }
 
-// Маркер начала/окончания оказания услуг
-export interface ServiceMarker {
+// Период оказания услуг (до 6 на объект)
+export interface ServicePeriod {
   id: string;
-  objectId: string;     // идентификатор объекта (city + purpose)
-  type: "start" | "end";
-  date: string;         // YYYY-MM-DD
-  label?: string;       // опциональная подпись
+  objectId: string;          // city|purpose
+  start: string;             // YYYY-MM-DD
+  end: string;               // YYYY-MM-DD
+}
+
+// Отпуск специалиста
+export interface Vacation {
+  id: string;
+  specialistId: string;
+  start: string;             // YYYY-MM-DD
+  end: string;               // YYYY-MM-DD
 }
 
 export interface AppData {
   specialists: Specialist[];
   trips: Trip[];
-  serviceMarkers?: ServiceMarker[];
+  servicePeriods?: ServicePeriod[];
+  vacations?: Vacation[];
 }
 
 // Сгруппированный объект для Timeline
 export interface TimelineObject {
-  id: string;           // city + "|" + purpose
+  id: string;                // city + "|" + purpose
   city: string;
   purpose: string;
-  trips: Trip[];        // командировки по этому объекту
-  startMarkers: ServiceMarker[];  // до 4
-  endMarkers: ServiceMarker[];    // до 4
-  completed?: boolean;  // объект выполнен (скрыт по умолчанию)
+  equipment?: string;
+  trips: Trip[];
+  servicePeriods: ServicePeriod[];  // до 6
+  completed?: boolean;
 }
 
-// Специальные строки таймлайна
-export type TimelineRowType = "object" | "training" | "vacation1" | "vacation2" | "completed-section";
+// Строки таймлайна
+export type TimelineRowType = "object" | "vacation" | "completed-section";
 
-// Группировка пересекающихся командировок (для отображения всех участников)
+// Группировка пересекающихся командировок
 export interface TripGroup {
   trips: Trip[];
   start: Date;
@@ -51,4 +60,12 @@ export interface TripGroup {
   left: number;
   width: number;
   specialistNames: string[];
+}
+
+// Существующий объект (для dropdown при добавлении)
+export interface ExistingObject {
+  id: string;                // city|purpose
+  city: string;
+  purpose: string;
+  equipment?: string;
 }
