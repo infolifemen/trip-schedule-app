@@ -1,15 +1,14 @@
-// VALID middleware - exports proper function but matcher is empty (matches nothing)
-// This prevents Vercel Edge Runtime from crashing on empty file
+// Middleware DISABLED - this file exists only to prevent Vercel cache issues
+// matcher points to non-existent path so middleware NEVER runs
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
-  // Pass through all requests - auth is handled client-side
   return NextResponse.next()
 }
 
-// Empty matcher = middleware never runs
-// Auth is handled by client-side redirects and next.config.js redirects
+// This matcher ensures middleware NEVER runs for real requests
+// '/__mw_disabled__' is a path that will never be requested
 export const config = {
-  matcher: [],
+  matcher: '/__mw_disabled__',
 }
