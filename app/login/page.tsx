@@ -1,23 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 
 export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const redirectedRef = useRef(false)
-
-  // Проверяем авторизацию ОДИН РАЗ при монтировании
-  useEffect(() => {
-    if (redirectedRef.current) return
-    
-    const isAuth = localStorage.getItem('trip_schedule_auth')
-    if (isAuth === 'true') {
-      redirectedRef.current = true
-      window.location.href = '/'
-    }
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,7 +13,6 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // Отправляем пароль на сервер для проверки
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -35,7 +22,8 @@ export default function LoginPage() {
       const data = await response.json()
 
       if (data.success) {
-        localStorage.setItem('trip_schedule_auth', 'true')
+        // Устанавливаем cookie на 30 дней
+        document.cookie = 'trip_schedule_auth=true; path=/; max-age=2592000; SameSite=Lax'
         window.location.href = '/'
       } else {
         setError(data.error || 'Неверный пароль')
