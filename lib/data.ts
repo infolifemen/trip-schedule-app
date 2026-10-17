@@ -1,4 +1,4 @@
-import type { AppData, Specialist, Trip, ServicePeriod, Vacation } from "./types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training } from "./types";
 
 const COLORS = [
   "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
@@ -47,11 +47,22 @@ const SEED_VACATIONS: Vacation[] = [
   { id: "v4", specialistId: "ТИС", start: "2026-10-18", end: "2026-10-25" },
 ];
 
+// Обучения специалистов
+const SEED_TRAININGS: Training[] = [
+  { id: "tr1", specialistId: "АДА", title: "Повышение квалификации по ОТ", start: "2026-11-10", end: "2026-11-14" },
+  { id: "tr2", specialistId: "ККА", title: "Курс по диагностике ТГ", start: "2026-10-15", end: "2026-10-19" },
+  { id: "tr3", specialistId: "СМВ", title: "Обучение работе с ЧР", start: "2026-12-01", end: "2026-12-05" },
+  { id: "tr4", specialistId: "ТАА", title: "Аттестация по электробезопасности", start: "2026-11-18", end: "2026-11-22" },
+  { id: "tr5", specialistId: "ЧАС", title: "Семинар по КДО", start: "2026-11-10", end: "2026-11-13" },
+];
+
 export const SEED_DATA: AppData = {
   specialists: SEED_SPECIALISTS,
   trips: SEED_TRIPS,
   servicePeriods: SEED_SERVICE_PERIODS,
   vacations: SEED_VACATIONS,
+  trainings: SEED_TRAININGS,
+  archivedIds: [],
 };
 
 // === Утилиты для работы с датами ===

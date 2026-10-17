@@ -1,4 +1,4 @@
-import type { AppData, Specialist, Trip, ServicePeriod, Vacation } from "./types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training } from "./types";
 import { SEED_DATA } from "./data";
 import { createClient } from "./supabase-browser";
 
@@ -75,19 +75,36 @@ export async function loadData(): Promise<AppData> {
       end: v.end_date,
     }));
 
+    // Загружаем обучения и архив из localStorage (пока нет таблиц в Supabase)
+    let trainings: Training[] = [];
+    let archivedIds: string[] = [];
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as AppData;
+        trainings = parsed.trainings || SEED_DATA.trainings || [];
+        archivedIds = parsed.archivedIds || [];
+      } else {
+        trainings = SEED_DATA.trainings || [];
+      }
+    } catch {
+      trainings = SEED_DATA.trainings || [];
+    }
+
     // Если база пуста — сидируем
     if (specialists.length === 0 && tripsList.length === 0) {
       await seedInitialData().catch(() => {});
       const fresh = await loadDataFromSupabase(supabase);
       if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
-        saveToCache(fresh);
-        return fresh;
+        const result = { ...fresh, trainings, archivedIds };
+        saveToCache(result);
+        return result;
       }
       saveToCache(SEED_DATA);
       return SEED_DATA;
     }
 
-    const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations };
+    const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations, trainings, archivedIds };
     saveToCache(result);
     return result;
   } catch (e) {
@@ -165,6 +182,9 @@ function loadFromCacheOrSeed(): AppData {
             specialistIds: t.specialistIds || [t.specialistId],
           }));
         }
+        // Убедиться что есть новые поля
+        if (!parsed.trainings) parsed.trainings = SEED_DATA.trainings || [];
+        if (!parsed.archivedIds) parsed.archivedIds = [];
         return parsed;
       }
     }
@@ -287,6 +307,26 @@ export async function deleteVacation(vacationId: string): Promise<void> {
   try {
     const supabase = createClient();
     await supabase.from("vacations").delete().eq("id", vacationId);
+  } catch {}
+}
+
+// === Сохранение обучения ===
+export function saveTrainings(trainings: Training[]): void {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const data = cached ? JSON.parse(cached) as AppData : { ...SEED_DATA };
+    data.trainings = trainings;
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+  } catch {}
+}
+
+// === Сохранение архивированных объектов ===
+export function saveArchivedIds(archivedIds: string[]): void {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    const data = cached ? JSON.parse(cached) as AppData : { ...SEED_DATA };
+    data.archivedIds = archivedIds;
+    localStorage.setItem(CACHE_KEY, JSON.stringify(data));
   } catch {}
 }
 

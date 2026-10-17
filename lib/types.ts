@@ -31,11 +31,22 @@ export interface Vacation {
   end: string;               // YYYY-MM-DD
 }
 
+// Обучение специалиста
+export interface Training {
+  id: string;
+  specialistId: string;
+  title: string;             // название обучения
+  start: string;             // YYYY-MM-DD
+  end: string;               // YYYY-MM-DD
+}
+
 export interface AppData {
   specialists: Specialist[];
   trips: Trip[];
   servicePeriods?: ServicePeriod[];
   vacations?: Vacation[];
+  trainings?: Training[];
+  archivedIds?: string[];    // objectId (city|purpose) в архиве
 }
 
 // Сгруппированный объект для Timeline
@@ -46,11 +57,11 @@ export interface TimelineObject {
   equipment?: string;
   trips: Trip[];
   servicePeriods: ServicePeriod[];  // до 6
-  completed?: boolean;
+  archived?: boolean;
 }
 
 // Строки таймлайна
-export type TimelineRowType = "object" | "vacation" | "completed-section";
+export type TimelineRowType = "object" | "vacation" | "training" | "completed-section";
 
 // Группировка пересекающихся командировок
 export interface TripGroup {
