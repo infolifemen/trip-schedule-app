@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
@@ -19,7 +18,6 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
-  const router = useRouter();
   const redirectedRef = useRef(false);
 
   // Проверка авторизации — выполняется ОДИН РАЗ при монтировании
@@ -153,8 +151,16 @@ export default function Home() {
   if (!authChecked || loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
-        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif", fontSize: "16px" }}>
-          Загрузка...
+        {/* Fallback: если JavaScript не загрузится, meta refresh редиректнет на /login через 3 секунды */}
+        <meta httpEquiv="refresh" content="3;url=/login" />
+        <noscript>
+          <meta httpEquiv="refresh" content="0;url=/login" />
+        </noscript>
+        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif", fontSize: "16px", textAlign: "center" }}>
+          <p>Загрузка...</p>
+          <p style={{ marginTop: "16px", fontSize: "14px" }}>
+            Если страница не загружается, <a href="/login" style={{ color: "#3b82f6", textDecoration: "underline" }}>нажмите здесь</a>
+          </p>
         </div>
       </div>
     );
