@@ -9,7 +9,7 @@ import { AddTripModal } from "@/components/AddTripModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
-import type { AppData, Specialist, Trip, ServiceMarker } from "@/lib/types";
+import type { AppData, Specialist, Trip } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
@@ -32,7 +32,7 @@ export default function Home() {
     }
   }, [router]);
 
-  // Загрузка из Supabase при монтировании
+  // Загрузка данных
   useEffect(() => {
     if (authChecking) return;
     
@@ -51,19 +51,16 @@ export default function Home() {
       });
   }, [authChecking]);
 
-  // Фильтрованные командировки
   const filteredTrips = useMemo(() => {
     if (!selectedSpecialist) return data.trips;
     return data.trips.filter((t) => t.specialistId === selectedSpecialist);
   }, [data.trips, selectedSpecialist]);
 
-  // Видимые специалисты
   const visibleSpecialists = useMemo(() => {
     if (!selectedSpecialist) return data.specialists;
     return data.specialists.filter((s) => s.id === selectedSpecialist);
   }, [data.specialists, selectedSpecialist]);
 
-  // Количество командировок по специалистам
   const tripCountBySpecialist = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const trip of data.trips) {
@@ -143,11 +140,6 @@ export default function Home() {
     alert("Данные сброшены.");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('trip_schedule_auth');
-    router.push('/login');
-  };
-
   if (authChecking || loading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
@@ -166,7 +158,6 @@ export default function Home() {
         onExport={handleExport}
         onImport={handleImport}
         onReset={handleReset}
-        onLogout={handleLogout}
         tripCount={data.trips.length}
         specialistCount={data.specialists.length}
       />
