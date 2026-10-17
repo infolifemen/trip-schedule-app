@@ -6,13 +6,15 @@ import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
 import { AddVacationModal } from "@/components/AddVacationModal";
+import { ArchiveModal } from "@/components/ArchiveModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
+  saveArchivedIds, saveTrainings,
 } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
-import type { AppData, Specialist, Trip, ServicePeriod, Vacation, ExistingObject } from "@/lib/types";
+import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training, ExistingObject, TimelineObject } from "@/lib/types";
 
 export default function Home() {
   const [data, setData] = useState<AppData>(SEED_DATA);
@@ -21,6 +23,8 @@ export default function Home() {
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
@@ -94,6 +98,42 @@ export default function Home() {
     return (data.vacations || []).filter(v => v.specialistId === selectedSpecialist);
   }, [data.vacations, selectedSpecialist]);
 
+  // Фильтрованные обучения
+  const filteredTrainings = useMemo(() => {
+    if (!selectedSpecialist) return data.trainings || [];
+    return (data.trainings || []).filter(t => t.specialistId === selectedSpecialist);
+  }, [data.trainings, selectedSpecialist]);
+
+  // Архивированные ID
+  const archivedIds = data.archivedIds || [];
+
+  // Подсчёт архивных объектов
+  const archivedCount = useMemo(() => {
+    const objIds = new Set(data.trips.map(t => `${t.city}|${t.purpose}`));
+    return archivedIds.filter(id => objIds.has(id)).length;
+  }, [data.trips, archivedIds]);
+
+  // Все объекты для ArchiveModal
+  const allObjects = useMemo((): TimelineObject[] => {
+    const map = new Map<string, TimelineObject>();
+    for (const trip of data.trips) {
+      const id = `${trip.city}|${trip.purpose}`;
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          city: trip.city,
+          purpose: trip.purpose,
+          equipment: trip.equipment,
+          trips: [],
+          servicePeriods: [],
+        });
+      }
+      map.get(id)!.trips.push(trip);
+      if (trip.equipment) map.get(id)!.equipment = trip.equipment;
+    }
+    return Array.from(map.values());
+  }, [data.trips]);
+
   // === Сохранение командировки ===
   const handleSaveTrip = useCallback(async (
     trip: Trip,
@@ -102,7 +142,6 @@ export default function Home() {
   ) => {
     let updatedSpecialists = data.specialists;
 
-    // Сохраняем новых специалистов
     if (newSpecialists && newSpecialists.length > 0) {
       const colors = [
         "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
@@ -124,16 +163,13 @@ export default function Home() {
       }
     }
 
-    // Сохраняем командировку
     await saveTrip(trip);
 
-    // Сохраняем периоды оказания услуг
     if (servicePeriods !== undefined) {
       const objectId = `${trip.city}|${trip.purpose}`;
       await saveServicePeriods(objectId, servicePeriods);
     }
 
-    // Обновляем state
     setData((prev) => {
       const existingIdx = prev.trips.findIndex((t) => t.id === trip.id);
       let trips: Trip[];
@@ -144,7 +180,6 @@ export default function Home() {
         trips = [...prev.trips, trip];
       }
 
-      // Обновляем периоды
       let updatedPeriods = prev.servicePeriods || [];
       if (servicePeriods !== undefined) {
         const objectId = `${trip.city}|${trip.purpose}`;
@@ -159,6 +194,8 @@ export default function Home() {
         trips,
         servicePeriods: updatedPeriods,
         vacations: prev.vacations,
+        trainings: prev.trainings,
+        archivedIds: prev.archivedIds,
       };
     });
   }, [data.specialists, data.servicePeriods, data.vacations]);
@@ -190,6 +227,20 @@ export default function Home() {
     }));
   }, []);
 
+  // === Архивирование ===
+  const handleArchive = useCallback((ids: string[]) => {
+    const newArchivedIds = [...new Set([...archivedIds, ...ids])];
+    saveArchivedIds(newArchivedIds);
+    setData(prev => ({ ...prev, archivedIds: newArchivedIds }));
+  }, [archivedIds]);
+
+  const handleUnarchive = useCallback((ids: string[]) => {
+    const idSet = new Set(ids);
+    const newArchivedIds = archivedIds.filter(id => !idSet.has(id));
+    saveArchivedIds(newArchivedIds);
+    setData(prev => ({ ...prev, archivedIds: newArchivedIds }));
+  }, [archivedIds]);
+
   // === Экспорт / Импорт ===
   const handleExport = () => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -210,13 +261,14 @@ export default function Home() {
         alert("Неверный формат файла");
         return;
       }
-      // Миграция старых данных
       if (imported.trips.some((t: any) => t.specialistId && !t.specialistIds)) {
         imported.trips = imported.trips.map((t: any) => ({
           ...t,
           specialistIds: t.specialistIds || [t.specialistId],
         }));
       }
+      if (!imported.trainings) imported.trainings = [];
+      if (!imported.archivedIds) imported.archivedIds = [];
       setData(imported);
       localStorage.removeItem("trip-schedule-import");
       alert("Импорт завершён.");
@@ -249,22 +301,31 @@ export default function Home() {
         onExport={handleExport}
         onImport={handleImport}
         onReset={handleReset}
+        onArchiveClick={() => setShowArchiveModal(true)}
+        showArchived={showArchived}
+        onToggleArchived={() => setShowArchived(!showArchived)}
         tripCount={data.trips.length}
         specialistCount={data.specialists.length}
+        archivedCount={archivedCount}
       />
 
-      <FilterChips
-        specialists={data.specialists}
-        selected={selectedSpecialist}
-        onSelect={setSelectedSpecialist}
-        tripCountBySpecialist={tripCountBySpecialist}
-      />
+      {!showArchived && (
+        <FilterChips
+          specialists={data.specialists}
+          selected={selectedSpecialist}
+          onSelect={setSelectedSpecialist}
+          tripCountBySpecialist={tripCountBySpecialist}
+        />
+      )}
 
       <Timeline
         specialists={visibleSpecialists}
         trips={filteredTrips}
         servicePeriods={data.servicePeriods || []}
         vacations={filteredVacations}
+        trainings={filteredTrainings}
+        archivedIds={archivedIds}
+        showArchived={showArchived}
         onSelectTrip={setViewingTrip}
         onAddVacation={() => setShowVacationModal(true)}
         onDeleteVacation={handleDeleteVacation}
@@ -289,6 +350,16 @@ export default function Home() {
           specialists={data.specialists}
           onSave={handleSaveVacation}
           onClose={() => setShowVacationModal(false)}
+        />
+      )}
+
+      {showArchiveModal && (
+        <ArchiveModal
+          objects={allObjects}
+          archivedIds={archivedIds}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
+          onClose={() => setShowArchiveModal(false)}
         />
       )}
 
