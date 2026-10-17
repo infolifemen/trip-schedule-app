@@ -1,178 +1,208 @@
-"use client";
+'use client'
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Header } from "@/components/Header";
-import { FilterChips } from "@/components/FilterChips";
-import { Timeline } from "@/components/Timeline";
-import { AddTripModal } from "@/components/AddTripModal";
-import { TripDetailsModal } from "@/components/TripDetailsModal";
-import { loadData, saveTrip, deleteTrip, saveSpecialist } from "@/lib/storage";
-import { SEED_DATA } from "@/lib/data";
-import type { AppData, Specialist, Trip } from "@/lib/types";
+import { useState, useEffect, useRef } from 'react'
+import { Specialist, Trip } from '../lib/types'
+import { Storage } from '../lib/storage'
+import { SEED_DATA } from '../lib/seed-data'
+import { Header } from '../components/Header'
+import { Timeline } from '../components/Timeline'
+import { Filters } from '../components/Filters'
+import { TripModal } from '../components/TripModal'
+import { Legend } from '../components/Legend'
+
+interface AppData {
+  specialists: Specialist[]
+  trips: Trip[]
+}
 
 export default function Home() {
-  const [data, setData] = useState<AppData>(SEED_DATA);
-  const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
-  const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
-  const redirectedRef = useRef(false);
+  const [data, setData] = useState<AppData>({ specialists: [], trips: [] })
+  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [specialistFilter, setSpecialistFilter] = useState<string>('')
+  const [monthFilter, setMonthFilter] = useState<string>('')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const authChecked = useRef(false)
 
-  // Проверка авторизации — выполняется ОДИН РАЗ при монтировании
+  // CRITICAL: Check auth BEFORE rendering anything
   useEffect(() => {
-    // Предотвращаем повторные вызовы (React StrictMode)
-    if (redirectedRef.current) return;
+    if (authChecked.current) return
+    authChecked.current = true
 
-    const isAuth = localStorage.getItem('trip_schedule_auth');
-    
+    const isAuth = localStorage.getItem('trip_schedule_auth')
     if (isAuth !== 'true') {
-      redirectedRef.current = true;
-      // Используем window.location для надёжного redirect
-      window.location.href = '/login';
-      return;
+      // Hard redirect - works even if JS partially loaded
+      window.location.replace('/login')
+      return
     }
-    
-    // Авторизован — продолжаем загрузку
-    setAuthChecked(true);
-  }, []); // Пустые зависимости — выполняется только при монтировании
 
-  // Загрузка данных — только после проверки авторизации
-  useEffect(() => {
-    if (!authChecked) return;
-    
+    // Auth OK - load data
     loadData()
-      .then((result) => {
-        setData(result);
-      })
-      .catch((err) => {
-        console.error("Ошибка загрузки:", err);
-        setData(SEED_DATA);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [authChecked]);
+  }, [])
 
-  const filteredTrips = useMemo(() => {
-    if (!selectedSpecialist) return data.trips;
-    return data.trips.filter((t) => t.specialistId === selectedSpecialist);
-  }, [data.trips, selectedSpecialist]);
-
-  const visibleSpecialists = useMemo(() => {
-    if (!selectedSpecialist) return data.specialists;
-    return data.specialists.filter((s) => s.id === selectedSpecialist);
-  }, [data.specialists, selectedSpecialist]);
-
-  const tripCountBySpecialist = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const trip of data.trips) {
-      counts[trip.specialistId] = (counts[trip.specialistId] || 0) + 1;
-    }
-    return counts;
-  }, [data.trips]);
-
-  const handleSaveTrip = useCallback(async (trip: Trip, newSpecialist?: Omit<Specialist, "color">) => {
-    let updatedSpecialists = data.specialists;
-
-    if (newSpecialist && !data.specialists.find((s) => s.id === newSpecialist.id)) {
-      const colors = [
-        "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981",
-        "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316",
-      ];
-      const color = colors[data.specialists.length % colors.length];
-      const specialist: Specialist = { ...newSpecialist, color };
-
-      await saveSpecialist(specialist);
-      updatedSpecialists = [...data.specialists, specialist];
-    }
-
-    await saveTrip(trip);
-
-    setData((prev) => {
-      const existingIdx = prev.trips.findIndex((t) => t.id === trip.id);
-      let trips: Trip[];
-      if (existingIdx >= 0) {
-        trips = [...prev.trips];
-        trips[existingIdx] = trip;
+  const loadData = async () => {
+    try {
+      const stored = await Storage.loadData()
+      if (stored) {
+        setData(stored)
+        setFilteredTrips(stored.trips)
       } else {
-        trips = [...prev.trips, trip];
+        // Use seed data as fallback
+        setData(SEED_DATA)
+        setFilteredTrips(SEED_DATA.trips)
+        await Storage.saveData(SEED_DATA)
       }
-      return { specialists: updatedSpecialists, trips };
-    });
-  }, [data.specialists]);
+    } catch (error) {
+      console.error('Failed to load data:', error)
+      // Fallback to seed data
+      setData(SEED_DATA)
+      setFilteredTrips(SEED_DATA.trips)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const handleDeleteTrip = useCallback(async (tripId: string) => {
-    await deleteTrip(tripId);
-    setData((prev) => ({
-      ...prev,
-      trips: prev.trips.filter((t) => t.id !== tripId),
-    }));
-  }, []);
+  // Apply filters
+  useEffect(() => {
+    if (data.trips.length === 0) return
+
+    let filtered = [...data.trips]
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      filtered = filtered.filter(trip => {
+        const specialist = data.specialists.find(s => s.id === trip.specialistId)
+        const specialistName = specialist ? specialist.name.toLowerCase() : ''
+        const location = trip.location.toLowerCase()
+        const comment = trip.comment?.toLowerCase() || ''
+        return specialistName.includes(query) || location.includes(query) || comment.includes(query)
+      })
+    }
+
+    if (specialistFilter) {
+      filtered = filtered.filter(trip => trip.specialistId === specialistFilter)
+    }
+
+    if (monthFilter) {
+      filtered = filtered.filter(trip => {
+        const tripMonth = trip.startDate.substring(0, 7) // YYYY-MM
+        return tripMonth === monthFilter
+      })
+    }
+
+    setFilteredTrips(filtered)
+  }, [data.trips, searchQuery, specialistFilter, monthFilter, data.specialists])
+
+  const handleAddTrip = () => {
+    setEditingTrip(null)
+    setIsModalOpen(true)
+  }
+
+  const handleEditTrip = (trip: Trip) => {
+    setEditingTrip(trip)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteTrip = async (tripId: string) => {
+    if (!confirm('Удалить эту командировку?')) return
+
+    const updatedTrips = data.trips.filter(t => t.id !== tripId)
+    const updatedData = { ...data, trips: updatedTrips }
+    setData(updatedData)
+    await Storage.saveData(updatedData)
+  }
+
+  const handleSaveTrip = async (trip: Trip) => {
+    let updatedTrips: Trip[]
+
+    if (editingTrip) {
+      updatedTrips = data.trips.map(t => t.id === trip.id ? trip : t)
+    } else {
+      updatedTrips = [...data.trips, trip]
+    }
+
+    const updatedData = { ...data, trips: updatedTrips }
+    setData(updatedData)
+    await Storage.saveData(updatedData)
+    setIsModalOpen(false)
+  }
 
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `trip-schedule-${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    const jsonStr = JSON.stringify(data, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trip-schedule-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const handleImport = async () => {
-    try {
-      const raw = localStorage.getItem("trip-schedule-import");
-      if (!raw) return;
-      const imported = JSON.parse(raw) as AppData;
-      if (!imported.specialists || !imported.trips) {
-        alert("Неверный формат файла");
-        return;
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        const imported = JSON.parse(text) as AppData
+        if (imported.specialists && imported.trips) {
+          setData(imported)
+          await Storage.saveData(imported)
+          alert('Данные успешно импортированы!')
+        } else {
+          alert('Неверный формат файла')
+        }
+      } catch (error) {
+        alert('Ошибка при импорте файла')
       }
-      setData(imported);
-      // Сохраняем импортированные данные в localStorage
-      localStorage.setItem("trip_schedule_data", JSON.stringify(imported));
-      localStorage.removeItem("trip-schedule-import");
-      alert("Импорт завершён.");
-    } catch (e) {
-      alert("Ошибка импорта");
     }
-  };
+    input.click()
+  }
 
   const handleReset = async () => {
-    if (!confirm("Сбросить все данные к начальному состоянию?")) return;
-    setData(SEED_DATA);
-    localStorage.setItem("trip_schedule_data", JSON.stringify(SEED_DATA));
-    alert("Данные сброшены.");
-  };
+    if (!confirm('Сбросить все данные к начальному состоянию? Это действие нельзя отменить.')) return
 
-  // Показываем загрузку пока не проверена авторизация или не загружены данные
-  if (!authChecked || loading) {
+    await Storage.resetData()
+    setData(SEED_DATA)
+    setFilteredTrips(SEED_DATA.trips)
+    alert('Данные сброшены к начальному состоянию')
+  }
+
+  // Show loading screen while checking auth
+  if (isLoading || !authChecked.current) {
     return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
-        {/* Fallback: если JavaScript не загрузится, meta refresh редиректнет на /login через 3 секунды */}
-        <meta httpEquiv="refresh" content="3;url=/login" />
-        <noscript>
-          <meta httpEquiv="refresh" content="0;url=/login" />
-        </noscript>
-        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif", fontSize: "16px", textAlign: "center" }}>
-          <p>Загрузка...</p>
-          <p style={{ marginTop: "16px", fontSize: "14px" }}>
-            Если страница не загружается, <a href="/login" style={{ color: "#3b82f6", textDecoration: "underline" }}>нажмите здесь</a>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f0eeeb',
+        fontFamily: "'Inter', sans-serif"
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ fontSize: '24px', color: '#1a1a1a' }}>Загрузка...</h1>
+          {/* Fallback redirect if JS doesn't execute */}
+          <noscript>
+            <meta httpEquiv="refresh" content="0;url=/login" />
+          </noscript>
+          <p style={{ marginTop: '16px', color: '#6b7280' }}>
+            Если страница не загружается, <a href="/login" style={{ color: '#3b82f6', textDecoration: 'underline' }}>нажмите здесь</a>
           </p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
+    <div style={{ minHeight: '100vh', background: '#f0eeeb' }}>
       <Header
-        onAddTrip={() => {
-          setEditingTrip(null);
-          setShowAddModal(true);
-        }}
+        onAddTrip={handleAddTrip}
         onExport={handleExport}
         onImport={handleImport}
         onReset={handleReset}
@@ -180,44 +210,35 @@ export default function Home() {
         specialistCount={data.specialists.length}
       />
 
-      <FilterChips
-        specialists={data.specialists}
-        selected={selectedSpecialist}
-        onSelect={setSelectedSpecialist}
-        tripCountBySpecialist={tripCountBySpecialist}
-      />
-
-      <Timeline
-        specialists={visibleSpecialists}
-        trips={filteredTrips}
-        serviceMarkers={data.serviceMarkers || []}
-        onSelectTrip={setViewingTrip}
-      />
-
-      {showAddModal && (
-        <AddTripModal
+      <main style={{ maxWidth: '100%', margin: '0 auto', padding: '24px' }}>
+        <Filters
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          specialistFilter={specialistFilter}
+          onSpecialistFilterChange={setSpecialistFilter}
+          monthFilter={monthFilter}
+          onMonthFilterChange={setMonthFilter}
           specialists={data.specialists}
-          initialTrip={editingTrip}
-          onSave={handleSaveTrip}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingTrip(null);
-          }}
         />
-      )}
 
-      {viewingTrip && (
-        <TripDetailsModal
-          trip={viewingTrip}
-          specialist={data.specialists.find((s) => s.id === viewingTrip.specialistId)}
-          onClose={() => setViewingTrip(null)}
-          onEdit={() => {
-            setEditingTrip(viewingTrip);
-            setShowAddModal(true);
-          }}
-          onDelete={() => handleDeleteTrip(viewingTrip.id)}
+        <Timeline
+          specialists={data.specialists}
+          trips={filteredTrips}
+          onEditTrip={handleEditTrip}
+          onDeleteTrip={handleDeleteTrip}
+        />
+
+        <Legend />
+      </main>
+
+      {isModalOpen && (
+        <TripModal
+          trip={editingTrip}
+          specialists={data.specialists}
+          onSave={handleSaveTrip}
+          onClose={() => setIsModalOpen(false)}
         />
       )}
     </div>
-  );
+  )
 }
