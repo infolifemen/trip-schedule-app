@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
 
 // Простой пароль (можно изменить через env vars в Vercel)
 const SITE_PASSWORD = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026'
@@ -10,15 +9,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const redirectedRef = useRef(false)
 
+  // Проверяем авторизацию ОДИН РАЗ при монтировании
   useEffect(() => {
-    // Проверяем, может уже авторизован
+    if (redirectedRef.current) return
+    
     const isAuth = localStorage.getItem('trip_schedule_auth')
     if (isAuth === 'true') {
-      router.push('/')
+      redirectedRef.current = true
+      // Используем window.location для надёжного redirect
+      window.location.href = '/'
     }
-  }, [router])
+  }, []) // Пустые зависимости — выполняется только при монтировании
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,7 +31,8 @@ export default function LoginPage() {
     // Простая проверка пароля
     if (password === SITE_PASSWORD) {
       localStorage.setItem('trip_schedule_auth', 'true')
-      router.push('/')
+      // Используем window.location для надёжного redirect
+      window.location.href = '/'
     } else {
       setError('Неверный пароль')
       setLoading(false)
