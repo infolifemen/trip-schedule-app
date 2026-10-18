@@ -6,11 +6,13 @@ import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
 import { AddVacationModal } from "@/components/AddVacationModal";
+import { AddTrainingModal } from "@/components/AddTrainingModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
+  saveTraining, deleteTraining,
   saveArchivedIds, saveTrainings,
 } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
@@ -24,8 +26,11 @@ export default function Home() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showTrainingModal, setShowTrainingModal] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
+  const [editingTraining, setEditingTraining] = useState<Training | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
@@ -198,10 +203,18 @@ export default function Home() {
 
   const handleSaveVacation = useCallback(async (vacation: Vacation) => {
     await saveVacation(vacation);
-    setData((prev) => ({
-      ...prev,
-      vacations: [...(prev.vacations || []), vacation],
-    }));
+    setData((prev) => {
+      const existingIdx = (prev.vacations || []).findIndex(v => v.id === vacation.id);
+      let vacations: Vacation[];
+      if (existingIdx >= 0) {
+        vacations = [...(prev.vacations || [])];
+        vacations[existingIdx] = vacation;
+      } else {
+        vacations = [...(prev.vacations || []), vacation];
+      }
+      return { ...prev, vacations };
+    });
+    setEditingVacation(null);
   }, []);
 
   const handleDeleteVacation = useCallback(async (vacationId: string) => {
@@ -210,6 +223,41 @@ export default function Home() {
       ...prev,
       vacations: (prev.vacations || []).filter(v => v.id !== vacationId),
     }));
+  }, []);
+
+  // === Обучение ===
+  const handleSaveTraining = useCallback(async (training: Training) => {
+    await saveTraining(training);
+    setData((prev) => {
+      const existingIdx = (prev.trainings || []).findIndex(t => t.id === training.id);
+      let trainings: Training[];
+      if (existingIdx >= 0) {
+        trainings = [...(prev.trainings || [])];
+        trainings[existingIdx] = training;
+      } else {
+        trainings = [...(prev.trainings || []), training];
+      }
+      return { ...prev, trainings };
+    });
+    setEditingTraining(null);
+  }, []);
+
+  const handleDeleteTraining = useCallback(async (trainingId: string) => {
+    await deleteTraining(trainingId);
+    setData((prev) => ({
+      ...prev,
+      trainings: (prev.trainings || []).filter(t => t.id !== trainingId),
+    }));
+  }, []);
+
+  const handleEditVacation = useCallback((vacation: Vacation) => {
+    setEditingVacation(vacation);
+    setShowVacationModal(true);
+  }, []);
+
+  const handleEditTraining = useCallback((training: Training) => {
+    setEditingTraining(training);
+    setShowTrainingModal(true);
   }, []);
 
   // === Архивирование ===
@@ -311,8 +359,18 @@ export default function Home() {
         archivedIds={archivedIds}
         showArchived={showArchived}
         onSelectTrip={setViewingTrip}
-        onAddVacation={() => setShowVacationModal(true)}
+        onAddVacation={() => {
+          setEditingVacation(null);
+          setShowVacationModal(true);
+        }}
         onDeleteVacation={handleDeleteVacation}
+        onEditVacation={handleEditVacation}
+        onAddTraining={() => {
+          setEditingTraining(null);
+          setShowTrainingModal(true);
+        }}
+        onDeleteTraining={handleDeleteTraining}
+        onEditTraining={handleEditTraining}
       />
 
       {showAddModal && (
@@ -332,8 +390,24 @@ export default function Home() {
       {showVacationModal && (
         <AddVacationModal
           specialists={data.specialists}
+          initialVacation={editingVacation}
           onSave={handleSaveVacation}
-          onClose={() => setShowVacationModal(false)}
+          onClose={() => {
+            setShowVacationModal(false);
+            setEditingVacation(null);
+          }}
+        />
+      )}
+
+      {showTrainingModal && (
+        <AddTrainingModal
+          specialists={data.specialists}
+          initialTraining={editingTraining}
+          onSave={handleSaveTraining}
+          onClose={() => {
+            setShowTrainingModal(false);
+            setEditingTraining(null);
+          }}
         />
       )}
 

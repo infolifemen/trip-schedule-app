@@ -9,16 +9,20 @@ interface AddVacationModalProps {
   specialists: Specialist[];
   onSave: (vacation: Vacation) => void;
   onClose: () => void;
+  initialVacation?: Vacation | null;
 }
 
 export function AddVacationModal({
   specialists,
   onSave,
   onClose,
+  initialVacation,
 }: AddVacationModalProps) {
-  const [specialistId, setSpecialistId] = useState("");
-  const [start, setStart] = useState(toISODate(today()));
-  const [end, setEnd] = useState(toISODate(new Date(today().getTime() + 14 * 86400000)));
+  const [specialistId, setSpecialistId] = useState(initialVacation?.specialistId || "");
+  const [start, setStart] = useState(initialVacation?.start || toISODate(today()));
+  const [end, setEnd] = useState(
+    initialVacation?.end || toISODate(new Date(today().getTime() + 14 * 86400000))
+  );
   const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -39,7 +43,7 @@ export function AddVacationModal({
     }
 
     const vacation: Vacation = {
-      id: `vac-${Date.now()}`,
+      id: initialVacation?.id || `vac-${Date.now()}`,
       specialistId,
       start,
       end,
@@ -81,7 +85,7 @@ export function AddVacationModal({
       >
         <div className="flex items-center justify-between p-5 border-b border-slate-800">
           <h2 className="text-lg font-bold text-white">
-            🌴 Добавить отпуск
+            {initialVacation ? "✏️ Редактировать" : "🌴 Добавить"} отпуск
           </h2>
           <button
             onClick={onClose}
@@ -147,7 +151,7 @@ export function AddVacationModal({
               type="submit"
               className="flex-1 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-lg shadow-lg transition-all"
             >
-              Добавить
+              {initialVacation ? "Сохранить" : "Добавить"}
             </button>
           </div>
         </form>

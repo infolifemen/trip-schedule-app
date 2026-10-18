@@ -22,6 +22,10 @@ interface TimelineProps {
   onSelectTrip?: (trip: Trip) => void;
   onAddVacation?: () => void;
   onDeleteVacation?: (vacationId: string) => void;
+  onEditVacation?: (vacation: Vacation) => void;
+  onAddTraining?: () => void;
+  onDeleteTraining?: (trainingId: string) => void;
+  onEditTraining?: (training: Training) => void;
 }
 
 // Дизайн-токены
@@ -230,6 +234,10 @@ export function Timeline({
   onSelectTrip,
   onAddVacation,
   onDeleteVacation,
+  onEditVacation,
+  onAddTraining,
+  onDeleteTraining,
+  onEditTraining,
 }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -265,10 +273,8 @@ export function Timeline({
       result.push({ type: "object", data: obj });
     }
 
-    // Строка обучения
-    if (trainings.length > 0) {
-      result.push({ type: "training" });
-    }
+    // Строка обучения (всегда показываем — там кнопка «Добавить»)
+    result.push({ type: "training" });
 
     // Строка отпусков
     result.push({ type: "vacation" });
@@ -429,6 +435,24 @@ export function Timeline({
           <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#8b5cf6" }}>
             📚 Обучение
           </div>
+          {onAddTraining && (
+            <button
+              onClick={onAddTraining}
+              style={{
+                padding: "3px 8px",
+                background: "rgba(139,92,246,0.15)",
+                border: "1px solid rgba(139,92,246,0.3)",
+                borderRadius: 6,
+                color: "#8b5cf6",
+                fontSize: 10,
+                fontWeight: 600,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              + Добавить
+            </button>
+          )}
         </div>
       );
     } else if (row.type === "vacation") {
@@ -694,8 +718,18 @@ export function Timeline({
                   boxShadow: `0 2px 4px ${TRAINING_BAR_COLOR}30`,
                   zIndex: 4,
                   opacity: 0.9,
+                  cursor: "pointer",
                 }}
-                title={`📚 ${spec?.name || tr.specialistId}: ${tr.title} (${tr.start} → ${tr.end})`}
+                title={`📚 ${spec?.name || tr.specialistId}: ${tr.title} (${tr.start} → ${tr.end}) — клик=редактировать, ПКМ=удалить`}
+                onClick={() => {
+                  if (onEditTraining) onEditTraining(tr);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (onDeleteTraining && confirm(`Удалить обучение «${tr.title}»?`)) {
+                    onDeleteTraining(tr.id);
+                  }
+                }}
               >
                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   📚 {spec?.name || tr.specialistId}
@@ -766,14 +800,37 @@ export function Timeline({
                   boxShadow: bar.count > 1
                     ? "0 2px 12px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.3)"
                     : "0 1px 4px rgba(245,158,11,0.1)",
-                  cursor: "default",
+                  cursor: "pointer",
                   zIndex: 4,
                   transition: "all 0.15s ease",
                 }}
                 title={bar.count > 1
-                  ? `🌴 ${bar.count} отпуска: ${bar.names.join(", ")}`
-                  : `🌴 ${bar.names[0]}`
+                  ? `🌴 ${bar.count} отпуска: ${bar.names.join(", ")} — клик=редактировать, ПКМ=удалить`
+                  : `🌴 ${bar.names[0]} — клик=редактировать, ПКМ=удалить`
                 }
+                onClick={() => {
+                  if (onEditVacation && vacations.length > 0) {
+                    // Находим первый отпуск в этом баре
+                    const vac = vacations.find(v => {
+                      const vStart = parseDate(v.start);
+                      const vEnd = parseDate(v.end);
+                      return vStart >= bar.start && vStart <= bar.end;
+                    });
+                    if (vac) onEditVacation(vac);
+                  }
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (onDeleteVacation && vacations.length > 0) {
+                    const vac = vacations.find(v => {
+                      const vStart = parseDate(v.start);
+                      return vStart >= bar.start && vStart <= bar.end;
+                    });
+                    if (vac && confirm(`Удалить отпуск ${bar.names[0]}?`)) {
+                      onDeleteVacation(vac.id);
+                    }
+                  }
+                }}
               >
                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {bar.count > 1 ? `🌴 ×${bar.count}` : "🌴"} {bar.names.length <= 2 ? bar.names.join(", ") : `${bar.names[0]} +${bar.names.length - 1}`}
@@ -858,7 +915,7 @@ export function Timeline({
             style={{
               position: "sticky",
               left: 0,
-              zIndex: 10,
+              zIndex: 35,
               width: LEFT_COL_WIDTH,
               minWidth: LEFT_COL_WIDTH,
               background: CARD_BG,
@@ -882,7 +939,7 @@ export function Timeline({
                 background: "rgba(255,255,255,0.95)",
                 position: "sticky",
                 top: 0,
-                zIndex: 30,
+                zIndex: 36,
               }}
             >
               {showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}
