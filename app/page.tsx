@@ -19,9 +19,9 @@ import { SEED_DATA } from "@/lib/data";
 import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training, ExistingObject, TimelineObject } from "@/lib/types";
 
 export default function Home() {
+  // ИСПРАВЛЕНИЕ: Начинаем с seed-данными для мгновенного рендера
   const [data, setData] = useState<AppData>(SEED_DATA);
   const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
@@ -33,6 +33,7 @@ export default function Home() {
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
+  // Загружаем данные из Supabase в фоне
   useEffect(() => {
     loadData()
       .then((result) => {
@@ -41,11 +42,8 @@ export default function Home() {
       })
       .catch((err) => {
         console.error("Ошибка загрузки:", err);
-        setData(SEED_DATA);
+        // Оставляем seed-данные при ошибке
         setLoaded(true);
-      })
-      .finally(() => {
-        setLoading(false);
       });
   }, []);
 
@@ -315,14 +313,7 @@ export default function Home() {
     alert("Данные сброшены.");
   };
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f0eeeb" }}>
-        <div style={{ color: "#5a5a72", fontFamily: "'Inter', sans-serif" }}>Загрузка...</div>
-      </div>
-    );
-  }
-
+  // ИСПРАВЛЕНИЕ: Убрали loading state — рендерим сразу с seed-данными
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
       <Header
