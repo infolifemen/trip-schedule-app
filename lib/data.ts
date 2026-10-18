@@ -15,7 +15,6 @@ const SEED_SPECIALISTS: Specialist[] = [
   { id: "ТАА", name: "ТАА", color: COLORS[6] },
   { id: "ЯН", name: "ЯН", color: COLORS[7] },
   { id: "КДА", name: "КДА", color: COLORS[8] },
-  { id: "СДС", name: "СДС", color: COLORS[9] },
 ];
 
 const SEED_TRIPS: Trip[] = [
@@ -23,7 +22,7 @@ const SEED_TRIPS: Trip[] = [
   { id: "t3", specialistIds: ["СНМ", "ЧАС"], city: "Краснодарская ТЭЦ", purpose: "КДО", equipment: "ЭД 6 кВ, бл.2-4", start: "2026-10-20", end: "2026-11-05", note: "ЭД 6 кВ, бл.2-4" },
   { id: "t5", specialistIds: ["СМВ", "ТИС"], city: "Прегольская ТЭС", purpose: "ТИ", equipment: "ТГ-10, 11", start: "2026-11-10", end: "2026-11-20", note: "ТГ-10, 11" },
   { id: "t7", specialistIds: ["ТАА", "ЯН"], city: "Калининградская ТЭЦ-2", purpose: "ЧР", equipment: "Г-10, 11", start: "2026-11-25", end: "2026-12-05", note: "Г-10, 11" },
-  { id: "t9", specialistIds: ["КДА", "СДС"], city: "Астраханская ТЭЦ-2", purpose: "КДО", equipment: "ТГ-4, Т-4", start: "2026-12-10", end: "2026-12-20", note: "ТГ-4, Т-4" },
+  { id: "t9", specialistIds: ["КДА"], city: "Астраханская ТЭЦ-2", purpose: "КДО", equipment: "ТГ-4, Т-4", start: "2026-12-10", end: "2026-12-20", note: "ТГ-4, Т-4" },
   { id: "t11", specialistIds: ["АДА", "ЧАС"], city: "Шатурская ГРЭС", purpose: "КДО", equipment: "ТГ-2, 5", start: "2026-12-01", end: "2026-12-08", note: "ТГ-2, 5" },
   { id: "t13", specialistIds: ["СНМ", "ЯН"], city: "Ставропольская ГРЭС", purpose: "ВД", equipment: "ТГ-2, 3", start: "2026-10-01", end: "2026-10-10", note: "ТГ-2, 3" },
   { id: "t15", specialistIds: ["ККА", "АДА"], city: "Сочинская ТЭС", purpose: "КДО", equipment: "ГТУ-1, 2", start: "2026-11-01", end: "2026-11-08", note: "ГТУ-1, 2" },
