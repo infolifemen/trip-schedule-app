@@ -38,7 +38,7 @@ const TRIP_BAR_HOVER = "#1d4ed8";
 const MARKER_START_COLOR = "#86efac";
 const MARKER_END_COLOR = "#fde047";
 const BG = "#f0eeeb";
-const CARD_BG = "rgba(255,255,255,0.72)";
+const CARD_BG = "rgba(255,255,255,0.98)";
 const BORDER = "rgba(0,0,0,0.06)";
 const TEXT_DIM = "#5a5a72";
 const TEXT_BRIGHT = "#1a1a2e";
@@ -241,7 +241,6 @@ export function Timeline({
 }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const leftColRef = useRef<HTMLDivElement>(null);
 
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
 
@@ -368,6 +367,17 @@ export function Timeline({
     () => mergeVacationBars(vacations, range.start, specialists),
     [vacations, range.start, specialists]
   );
+
+  // === CSS для вертикальных линий (оптимизация) ===
+  const gridBackground = useMemo(() => {
+    const lines: string[] = [];
+    for (let i = 0; i < days.length; i++) {
+      const day = days[i];
+      const color = isWeekend(day) ? "rgba(220,38,38,0.06)" : "rgba(0,0,0,0.03)";
+      lines.push(`${color} ${i * PX_PER_DAY}px, ${color} ${i * PX_PER_DAY + 1}px`);
+    }
+    return `linear-gradient(to right, ${lines.join(", ")})`;
+  }, [days]);
 
   // === Рендер левой колонки ===
   const renderLeftRow = (row: typeof rows[0], idx: number) => {
@@ -524,22 +534,6 @@ export function Timeline({
             opacity: showArchived ? 0.8 : 1,
           }}
         >
-          {/* Вертикальные линии */}
-          {days.map((day, i) => (
-            <div
-              key={`vline-${i}`}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: i * PX_PER_DAY,
-                width: 1,
-                background: isWeekend(day) ? "rgba(220,38,38,0.06)" : "rgba(0,0,0,0.03)",
-                pointerEvents: "none",
-              }}
-            />
-          ))}
-
           {/* Маркеры периодов оказания услуг */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start);
@@ -669,21 +663,6 @@ export function Timeline({
             background: "transparent",
           }}
         >
-          {days.map((day, i) => (
-            <div
-              key={`vline-tr-${i}`}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: i * PX_PER_DAY,
-                width: 1,
-                background: "rgba(0,0,0,0.02)",
-                pointerEvents: "none",
-              }}
-            />
-          ))}
-
           {/* Плашки обучений */}
           {trainings.map((tr) => {
             const trStart = parseDate(tr.start);
@@ -753,21 +732,6 @@ export function Timeline({
             background: "transparent",
           }}
         >
-          {days.map((day, i) => (
-            <div
-              key={`vline-vac-${i}`}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: i * PX_PER_DAY,
-                width: 1,
-                background: "rgba(0,0,0,0.02)",
-                pointerEvents: "none",
-              }}
-            />
-          ))}
-
           {/* Объединённые стеклянные бары отпусков */}
           {vacationBars.map((bar, bi) => {
             if (bar.left + bar.width < 0 || bar.left > totalWidth) return null;
@@ -852,22 +816,7 @@ export function Timeline({
           position: "relative",
           background: "transparent",
         }}
-      >
-        {days.map((day, i) => (
-          <div
-            key={`vline-fb-${i}`}
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: i * PX_PER_DAY,
-              width: 1,
-              background: "rgba(0,0,0,0.02)",
-              pointerEvents: "none",
-            }}
-          />
-        ))}
-      </div>
+      />
     );
   };
 
@@ -902,30 +851,37 @@ export function Timeline({
       <div
         ref={scrollContainerRef}
         style={{
-          width: "100%",
-          height: "100%",
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
           overflow: "auto",
-          position: "relative",
         }}
       >
-        <div style={{ display: "flex", minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* === ФИКСИРОВАННАЯ ЛЕВАЯ КОЛОНКА === */}
+        {/* Wrapper для всей таблицы */}
+        <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
+          
+          {/* === STICKY HEADER ROW (прилипает к верху при вертикальном скролле) === */}
           <div
-            ref={leftColRef}
             style={{
               position: "sticky",
-              left: 0,
-              zIndex: 35,
-              width: LEFT_COL_WIDTH,
-              minWidth: LEFT_COL_WIDTH,
-              background: CARD_BG,
-              backdropFilter: "blur(16px)",
-              borderRight: `1px solid ${BORDER}`,
+              top: 0,
+              zIndex: 25,
+              display: "flex",
+              height: HEADER_HEIGHT,
+              borderBottom: `1px solid ${BORDER}`,
+              background: "rgba(255,255,255,0.98)",
             }}
           >
-            {/* Заголовок левой колонки — STICKY TOP */}
+            {/* Угловая ячейка — sticky left (прилипает слева при горизонтальном скролле) */}
             <div
               style={{
+                position: "sticky",
+                left: 0,
+                zIndex: 35,
+                width: LEFT_COL_WIDTH,
+                minWidth: LEFT_COL_WIDTH,
                 height: HEADER_HEIGHT,
                 borderBottom: `1px solid ${BORDER}`,
                 display: "flex",
@@ -936,32 +892,14 @@ export function Timeline({
                 color: TEXT_DIM,
                 letterSpacing: "0.5px",
                 textTransform: "uppercase",
-                background: "rgba(255,255,255,0.95)",
-                position: "sticky",
-                top: 0,
-                zIndex: 36,
+                background: "rgba(255,255,255,0.98)",
               }}
             >
               {showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}
             </div>
 
-            {rows.map((row, idx) => renderLeftRow(row, idx))}
-          </div>
-
-          {/* === ПРОКРУЧИВАЕМЫЙ ТАЙМЛАЙН === */}
-          <div style={{ width: totalWidth }}>
-            {/* STICKY HEADER — месяцы и дни (zIndex: 25 для надёжной фиксации) */}
-            <div
-              style={{
-                height: HEADER_HEIGHT,
-                borderBottom: `1px solid ${BORDER}`,
-                position: "sticky",
-                top: 0,
-                zIndex: 25,
-                background: "rgba(255,255,255,0.95)",
-                backdropFilter: "blur(16px)",
-              }}
-            >
+            {/* Даты */}
+            <div style={{ width: totalWidth, position: "relative" }}>
               {/* Месяцы */}
               <div style={{ height: 28, position: "relative" }}>
                 {months.map((m, i) => (
@@ -1021,9 +959,34 @@ export function Timeline({
                 })}
               </div>
             </div>
+          </div>
 
-            {/* Область строк */}
-            <div style={{ position: "relative" }}>
+          {/* === CONTENT AREA (прокручивается) === */}
+          <div style={{ display: "flex" }}>
+            {/* Левая колонка — sticky left (прилипает слева при горизонтальном скролле) */}
+            <div
+              style={{
+                position: "sticky",
+                left: 0,
+                zIndex: 20,
+                width: LEFT_COL_WIDTH,
+                minWidth: LEFT_COL_WIDTH,
+                background: CARD_BG,
+                borderRight: `1px solid ${BORDER}`,
+              }}
+            >
+              {rows.map((row, idx) => renderLeftRow(row, idx))}
+            </div>
+
+            {/* Область строк с вертикальной сеткой */}
+            <div
+              style={{
+                width: totalWidth,
+                position: "relative",
+                backgroundImage: gridBackground,
+                backgroundRepeat: "no-repeat",
+              }}
+            >
               {/* Линия «сегодня» */}
               {todayOffset !== null && (
                 <div
