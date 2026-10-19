@@ -15,6 +15,7 @@ import {
   saveServicePeriods, saveVacation, deleteVacation,
   saveTraining, deleteTraining, loadFromCacheSync,
   saveArchivedIds, saveTrainings, saveToCache,
+  scheduleSnapshot,
 } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
 import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training, ExistingObject, TimelineObject } from "@/lib/types";
@@ -61,7 +62,6 @@ function LoadingBar() {
 }
 
 export default function Home() {
-  // Hash routing для админки (GitHub Pages не поддерживает server-side routing)
   const [showAdmin, setShowAdmin] = useState(() => 
     typeof window !== 'undefined' && window.location.hash === '#/admin'
   );
@@ -74,8 +74,6 @@ export default function Home() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  // Lazy-инициализатор: читаем localStorage СИНХРОННО при первом render.
-  // Это устраняет "мигание" (командировки появляются из seed, потом исчезают после useEffect).
   const [data, setData] = useState<AppData>(() => loadFromCacheSync() || SEED_DATA);
   const [loaded, setLoaded] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
@@ -91,7 +89,6 @@ export default function Home() {
 
   useEffect(() => {
     loadData().then((result) => {
-      // Не перезаписываем, если Supabase вернул пусто (чтобы не терять локальные данные)
       if (result.trips.length === 0 && data.trips.length > 0) {
         console.warn("[page] Supabase returned empty, keeping local data");
         setLoaded(true);
@@ -102,12 +99,11 @@ export default function Home() {
     }).catch((err) => { console.error("Ошибка загрузки:", err); setLoaded(true); });
   }, []);
 
-  // === PERSISTENCE: сохраняем data в localStorage при каждом изменении ===
-  // Это гарантирует что все изменения (добавление/удаление командировок, отпусков и т.д.)
-  // сохраняются в localStorage и не теряются при перезагрузке страницы.
+  // === PERSISTENCE: localStorage + Supabase snapshot (debounced 800ms) ===
   useEffect(() => {
     if (loaded) {
       saveToCache(data);
+      scheduleSnapshot(data);
     }
   }, [data, loaded]);
 
