@@ -5,18 +5,32 @@ import { createSupabaseClient } from "./supabase-browser";
 const CACHE_KEY = "trip-schedule-cache";
 
 /**
- * Безопасная обёртка для Supabase-запросов.
- * Возвращает { data, error } при успехе или { data: null, error } при ошибке.
- * Тип `any` — чтобы TS не ругался на generic PostgrestBuilder.
+ * Fetches ALL rows from a PostgREST query, automatically paginating
+ * past Supabase's default 1000-row max_rows limit.
+ * Without .range() or .limit(), PostgREST silently truncates at 1000 rows.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function safeQuery(queryFn: () => Promise<any>): Promise<any> {
+async function fetchAll(builder: any): Promise<{ data: any[] | null; error: any | null }> {
+  const PAGE_SIZE = 1000;
+  let from = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all: any[] = [];
   try {
-    const result = await queryFn();
-    return result;
+    while (true) {
+      const { data, error } = await builder.range(from, from + PAGE_SIZE - 1);
+      if (error) {
+        console.warn(`[fetchAll] Page ${from}-${from + PAGE_SIZE - 1} error:`, error.message);
+        return { data: null, error };
+      }
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+    return { data: all, error: null };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.warn("[SafeQuery] Supabase error:", msg);
+    console.warn("[fetchAll] Exception:", msg);
     return { data: null, error: { message: msg } };
   }
 }
@@ -25,37 +39,27 @@ export async function loadData(): Promise<AppData> {
   try {
     const supabase = createSupabaseClient();
 
-    const specs = await safeQuery(() =>
-      supabase.from("specialists").select("*").order("id")
-    );
-    const tripsRes = await safeQuery(() =>
-      supabase.from("trips").select("*").order("start_date")
-    );
-    const spRes = await safeQuery(() =>
-      supabase.from("service_periods").select("*")
-    );
-    const vacRes = await safeQuery(() =>
-      supabase.from("vacations").select("*")
-    );
-    const trRes = await safeQuery(() =>
-      supabase.from("trainings").select("*")
-    );
+    const specs = await fetchAll(supabase.from("specialists").select("*").order("id"));
+    const tripsRes = await fetchAll(supabase.from("trips").select("*").order("start_date"));
+    const spRes = await fetchAll(supabase.from("service_periods").select("*"));
+    const vacRes = await fetchAll(supabase.from("vacations").select("*"));
+    const trRes = await fetchAll(supabase.from("trainings").select("*"));
 
     const hasCriticalError =
-      specs?.error || tripsRes?.error || spRes?.error || vacRes?.error || trRes?.error;
+      specs.error || tripsRes.error || spRes.error || vacRes.error || trRes.error;
 
     if (hasCriticalError) {
       console.warn("[loadData] Supabase error, falling back:", {
-        specialists: specs?.error?.message,
-        trips: tripsRes?.error?.message,
-        service_periods: spRes?.error?.message,
-        vacations: vacRes?.error?.message,
-        trainings: trRes?.error?.message,
+        specialists: specs.error?.message,
+        trips: tripsRes.error?.message,
+        service_periods: spRes.error?.message,
+        vacations: vacRes.error?.message,
+        trainings: trRes.error?.message,
       });
       return loadFromCacheOrSeed();
     }
 
-    if (!specs?.data || !tripsRes?.data) {
+    if (!specs.data || !tripsRes.data) {
       console.warn("[loadData] No data from Supabase, falling back");
       return loadFromCacheOrSeed();
     }
