@@ -210,7 +210,7 @@ async function seedInitialData(): Promise<void> {
   const supabase = createSupabaseClient();
 
   await supabase.from("specialists").insert(
-    SEED_DATA.specialists.map((s) => ({ id: s.id, name: s.name, color: s.color }))
+    SEED_DATA.specialists.map((s) => ({ id: s.id, name: s.name, color: s.color })) as any
   ).then(r => { if (r.error) console.warn("Seed specialists error:", r.error.message); });
 
   await supabase.from("trips").insert(
@@ -224,25 +224,25 @@ async function seedInitialData(): Promise<void> {
       start_date: t.start,
       end_date: t.end,
       note: t.note || "",
-    }))
+    })) as any
   ).then(r => { if (r.error) console.warn("Seed trips error:", r.error.message); });
 
   await supabase.from("service_periods").insert(
     (SEED_DATA.servicePeriods || []).map((sp) => ({
       id: sp.id, object_id: sp.objectId, start_date: sp.start, end_date: sp.end,
-    }))
+    })) as any
   ).then(r => { if (r.error) console.warn("Seed service_periods error:", r.error.message); });
 
   await supabase.from("vacations").insert(
     (SEED_DATA.vacations || []).map((v) => ({
       id: v.id, specialist_id: v.specialistId, start_date: v.start, end_date: v.end,
-    }))
+    })) as any
   ).then(r => { if (r.error) console.warn("Seed vacations error:", r.error.message); });
 
   await supabase.from("trainings").insert(
     (SEED_DATA.trainings || []).map((t) => ({
       id: t.id, specialist_id: t.specialistId, title: t.title, start_date: t.start, end_date: t.end,
-    }))
+    })) as any
   ).then(r => { if (r.error) console.warn("Seed trainings error:", r.error.message); });
 }
 
@@ -260,7 +260,7 @@ export async function saveTrip(trip: Trip): Promise<void> {
       start_date: trip.start,
       end_date: trip.end,
       note: trip.note || "",
-    });
+    } as any);
     if (error) console.warn("saveTrip error:", error.message);
   } catch (e) {
     console.warn("saveTrip catch:", e);
@@ -281,7 +281,7 @@ export async function saveSpecialist(specialist: Specialist): Promise<void> {
     const supabase = createSupabaseClient();
     await supabase.from("specialists").upsert({
       id: specialist.id, name: specialist.name, color: specialist.color,
-    });
+    } as any);
   } catch {}
 }
 
@@ -294,7 +294,7 @@ export async function saveServicePeriods(objectId: string, periods: ServicePerio
       const { error } = await supabase.from("service_periods").insert(
         periods.map((p) => ({
           id: p.id, object_id: p.objectId, start_date: p.start, end_date: p.end,
-        }))
+        })) as any
       );
       if (error) console.warn("saveServicePeriods error:", error.message);
     }
@@ -312,7 +312,7 @@ export async function saveVacation(vacation: Vacation): Promise<void> {
       specialist_id: vacation.specialistId,
       start_date: vacation.start,
       end_date: vacation.end,
-    });
+    } as any);
     if (error) console.warn("saveVacation error:", error.message);
   } catch (e) {
     console.warn("saveVacation catch:", e);
@@ -337,7 +337,7 @@ export async function saveTraining(training: Training): Promise<void> {
       title: training.title,
       start_date: training.start,
       end_date: training.end,
-    });
+    } as any);
     if (error) console.warn("saveTraining error:", error.message);
   } catch (e) {
     console.warn("saveTraining catch:", e);
