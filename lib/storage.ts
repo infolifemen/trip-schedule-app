@@ -111,7 +111,8 @@ export async function loadData(): Promise<AppData> {
   } catch (e) { console.error("[loadData] Fatal error, falling back:", e); return loadFromCacheOrSeed(); }
 }
 
-function saveToCache(data: AppData): void {
+// ЭКСПОРТИРОВАНО: сохраняем в localStorage для persistence после каждого изменения
+export function saveToCache(data: AppData): void {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ...data, _schema: SCHEMA_VERSION })); } catch { /* ignore */ }
 }
 
