@@ -201,7 +201,7 @@ export default function Home() {
     <AuthGate>
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
-        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
+        {loaded && <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
           <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
           <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} />
           {showAddModal && <AddTripModal specialists={data.specialists} existingObjects={existingObjects} initialTrip={editingTrip} initialServicePeriods={editingServicePeriods} onSave={handleSaveTrip} onClose={() => { setShowAddModal(false); setEditingTrip(null); }} />}
@@ -209,7 +209,7 @@ export default function Home() {
           {showTrainingModal && <AddTrainingModal specialists={data.specialists} initialTraining={editingTraining} onSave={handleSaveTraining} onClose={() => { setShowTrainingModal(false); setEditingTraining(null); }} />}
           {showArchiveModal && <ArchiveModal objects={allObjects} archivedIds={archivedIds} onArchive={handleArchive} onUnarchive={handleUnarchive} onClose={() => setShowArchiveModal(false)} />}
           {viewingTrip && <TripDetailsModal trip={viewingTrip} specialists={data.specialists} servicePeriods={data.servicePeriods} onClose={() => setViewingTrip(null)} onEdit={() => { setEditingTrip(viewingTrip); setShowAddModal(true); }} onDelete={() => handleDeleteTrip(viewingTrip.id)} />}
-        </div>
+        </div>}
       </ErrorBoundary>
     </AuthGate>
   );
