@@ -3,7 +3,7 @@ import { SEED_DATA } from "./data";
 import { createSupabaseClient } from "./supabase-browser";
 
 const CACHE_KEY = "trip-schedule-cache";
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 // Всё, что заканчивается ДО этой даты — считается "до 2026" и отбрасывается миграцией
 const MIN_DATE = "2026-01-01";
 
@@ -16,13 +16,36 @@ async function safeQuery(queryFn: () => Promise<any>): Promise<any> {
 function filterByEnd<T extends { end: string }>(items: T[]): T[] {
   return items.filter(i => i.end >= MIN_DATE);
 }
+// Имена специалистов, которых нужно удалить из данных (пользователь попросил «вообще удалить»)
+const BLACKLIST_NAMES = new Set(["команда"]);
+
+function isBlacklisted(s: { id: string; name?: string }): boolean {
+  const n = (s.name || s.id || "").toString().toLowerCase().trim();
+  return BLACKLIST_NAMES.has(n);
+}
+
 function migrateData(data: AppData): AppData {
+  // Удаляем специалистов из blacklist и собираем их id
+  const cleanSpecialists = (data.specialists || []).filter((s) => !isBlacklisted(s));
+  const removedSpecIds = new Set(
+    (data.specialists || []).filter(isBlacklisted).map((s) => s.id)
+  );
+
+  // Фильтруем командировки: убираем ссылки на удалённых специалистов; если список пуст — удаляем
+  const cleanedTrips = filterByEnd(data.trips || [])
+    .map((t) => ({ ...t, specialistIds: t.specialistIds.filter((id) => !removedSpecIds.has(id)) }))
+    .filter((t) => t.specialistIds.length > 0);
+
+  // Удаляем отпуска и обучения удалённых специалистов
+  const cleanVacations = filterByEnd(data.vacations || []).filter((v) => !removedSpecIds.has(v.specialistId));
+  const cleanTrainings = filterByEnd(data.trainings || []).filter((tr) => !removedSpecIds.has(tr.specialistId));
+
   return {
-    specialists: data.specialists || [],
-    trips: filterByEnd(data.trips || []),
+    specialists: cleanSpecialists,
+    trips: cleanedTrips,
     servicePeriods: filterByEnd(data.servicePeriods || []),
-    vacations: filterByEnd(data.vacations || []),
-    trainings: filterByEnd(data.trainings || []),
+    vacations: cleanVacations,
+    trainings: cleanTrainings,
     archivedIds: data.archivedIds || [],
   };
 }
