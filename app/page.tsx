@@ -14,7 +14,7 @@ import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
   saveTraining, deleteTraining, loadFromCacheSync,
-  saveArchivedIds, saveTrainings,
+  saveArchivedIds, saveTrainings, saveToCache,
 } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
 import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training, ExistingObject, TimelineObject } from "@/lib/types";
@@ -101,6 +101,15 @@ export default function Home() {
       setLoaded(true);
     }).catch((err) => { console.error("Ошибка загрузки:", err); setLoaded(true); });
   }, []);
+
+  // === PERSISTENCE: сохраняем data в localStorage при каждом изменении ===
+  // Это гарантирует что все изменения (добавление/удаление командировок, отпусков и т.д.)
+  // сохраняются в localStorage и не теряются при перезагрузке страницы.
+  useEffect(() => {
+    if (loaded) {
+      saveToCache(data);
+    }
+  }, [data, loaded]);
 
   const filteredTrips = useMemo(() => {
     if (!selectedSpecialist) return data.trips;
