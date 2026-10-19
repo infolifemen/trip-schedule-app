@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClientCore } from '@supabase/supabase-js'
 
 /**
  * Custom fetch wrapper — блокирует ВСЕ запросы к Supabase Auth.
@@ -41,7 +41,8 @@ const authBlockFetch = async (
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-let cachedClient: ReturnType<typeof createSupabaseClient> | null = null
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let cachedClient: any = null
 
 export function createClient() {
   if (cachedClient) return cachedClient
@@ -49,7 +50,7 @@ export function createClient() {
   const url = supabaseUrl || 'https://placeholder.supabase.co'
   const key = supabaseAnonKey || 'placeholder-key'
 
-  cachedClient = createSupabaseClient(url, key, {
+  cachedClient = createSupabaseClientCore(url, key, {
     global: {
       fetch: authBlockFetch,
     },
@@ -71,4 +72,5 @@ export function createClient() {
   return cachedClient
 }
 
+// Реэкспорт под обоими именами для совместимости
 export const createSupabaseClient = createClient
