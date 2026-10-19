@@ -1,11 +1,39 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-// Используем createClient НАПРЯМУЮ из @supabase/supabase-js
-// вместо @supabase/ssr, потому что:
-// 1. Мы НЕ используем Supabase Auth (у нас кастомный логин через cookie trip_schedule_auth)
-// 2. @supabase/ssr создаёт GoTrue client который делает preflight-запросы к Auth API
-//    что может вызывать "Database error querying schema" если auth.users имеет проблемы
-// 3. Нам не нужна серверная сессия — только PostgREST для чтения/записи данных
+// === Custom fetch wrapper ===
+// Блокируем ВСЕ запросы к Supabase Auth endpoints.
+// @supabase/supabase-js GoTrue client делает preflight-запросы к /auth/v1/settings
+// даже когда auth полностью отключён. Supabase Auth возвращает
+// "Database error querying schema" что ломает приложение.
+// Этот wrapper перехватывает все /auth/ запросы и возвращает мок-ответ.
+
+const authBlockFetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
+
+  // Блокируем ВСЕ запросы к Supabase Auth
+  if (url.includes('/auth/v1/') || url.includes('/auth/v2/')) {
+    console.log('[AuthBlock] Заблокирован запрос к Auth:', url)
+    return new Response(
+      JSON.stringify({
+        external: { anonymous_users: false, phone: { enabled: false }, email: { enabled: false } },
+        disable_signup: true,
+        mailer: { autoconfirm: true },
+        user: null,
+        error_description: 'Auth disabled',
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  // Все остальные запросы (PostgREST, Storage) — пропускаем как обычно
+  return fetch(input, init)
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -19,14 +47,22 @@ export function createClient() {
     console.warn('Supabase env vars не настроены — будет использован fallback на SEED_DATA')
     cachedClient = createSupabaseClient(
       'https://placeholder.supabase.co',
-      'placeholder-key'
+      'placeholder-key',
+      {
+        global: { fetch: authBlockFetch },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+        },
+      }
     )
     return cachedClient
   }
 
   cachedClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    global: { fetch: authBlockFetch },
     auth: {
-      // Полностью отключаем Auth — нам не нужна авторизация через Supabase
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
