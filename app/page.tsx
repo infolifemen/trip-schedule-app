@@ -8,7 +8,7 @@ import { AddVacationModal } from "@/components/AddVacationModal";
 import { AddTrainingModal } from "@/components/AddTrainingModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
-import { AuthGate } from "@/components/AuthGate";
+import AuthGuard from "@/components/AuthGuard";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
@@ -209,7 +209,7 @@ export default function Home() {
   const handleUnarchive = useCallback((ids: string[]) => { const idSet = new Set(ids); const newArchivedIds = archivedIds.filter(id => !idSet.has(id)); saveArchivedIds(newArchivedIds); setData(prev => ({ ...prev, archivedIds: newArchivedIds })); }, [archivedIds]);
 
   return (
-    <AuthGate>
+    <AuthGuard>
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
@@ -222,6 +222,6 @@ export default function Home() {
           {viewingTrip && <TripDetailsModal trip={viewingTrip} specialists={data.specialists} servicePeriods={data.servicePeriods} onClose={() => setViewingTrip(null)} onEdit={() => { setEditingTrip(viewingTrip); setShowAddModal(true); }} onDelete={() => handleDeleteTrip(viewingTrip.id)} />}
         </div>}
       </ErrorBoundary>
-    </AuthGate>
+    </AuthGuard>
   );
 }

@@ -1,48 +1,68 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-
-const COOKIE_NAME = 'trip_schedule_auth'
-
-function clearAuthCookie() {
-  document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`
-}
+import { logout, isAdmin } from '@/lib/auth'
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handleLogout = () => {
     setLoading(true)
-    clearAuthCookie()
-    router.push('/login')
+    logout()
+    window.location.reload()
   }
 
   return (
-    <button
-      onClick={handleLogout}
-      disabled={loading}
-      style={{
-        padding: '8px 16px',
-        fontSize: '14px',
-        background: 'transparent',
-        color: '#6b7280',
-        border: '1px solid #d1d5db',
-        borderRadius: '6px',
-        cursor: loading ? 'not-allowed' : 'pointer',
-        transition: 'all 0.2s',
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.background = '#f3f4f6'
-        e.currentTarget.style.color = '#1f2937'
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color = '#6b7280'
-      }}
-    >
-      {loading ? 'Выход...' : 'Выйти'}
-    </button>
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {isAdmin() && (
+        <a
+          href="/admin"
+          style={{
+            padding: '8px 16px',
+            fontSize: '13px',
+            background: 'transparent',
+            color: '#6b7280',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#f3f4f6'
+            e.currentTarget.style.color = '#1f2937'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = '#6b7280'
+          }}
+        >
+          Управление
+        </a>
+      )}
+      <button
+        onClick={handleLogout}
+        disabled={loading}
+        style={{
+          padding: '8px 16px',
+          fontSize: '13px',
+          background: 'transparent',
+          color: '#6b7280',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'all 0.2s',
+        }}
+        onMouseOver={(e) => {
+          e.currentTarget.style.background = '#f3f4f6'
+          e.currentTarget.style.color = '#1f2937'
+        }}
+        onMouseOut={(e) => {
+          e.currentTarget.style.background = 'transparent'
+          e.currentTarget.style.color = '#6b7280'
+        }}
+      >
+        {loading ? 'Выход...' : 'Выйти'}
+      </button>
+    </div>
   )
 }
