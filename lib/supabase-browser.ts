@@ -1,28 +1,24 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-// === Custom fetch wrapper ===
-// Блокируем ВСЕ запросы к Supabase Auth endpoints.
-// @supabase/supabase-js GoTrue client делает preflight-запросы к /auth/v1/settings
-// даже когда auth полностью отключён. Supabase Auth возвращает
-// "Database error querying schema" что ломает приложение.
-// Этот wrapper перехватывает все /auth/ запросы и возвращает мок-ответ.
-
+/**
+ * Custom fetch wrapper — блокирует ВСЕ запросы к Supabase Auth.
+ * @supabase/supabase-js GoTrue client делает preflight-запросы к /auth/v1/settings
+ * даже когда auth отключён. Это возвращает "Database error querying schema".
+ * Мы перехватываем все /auth/ запросы и возвращаем мок-ответ.
+ */
 const authBlockFetch = async (
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url
 
-  // Блокируем ВСЕ запросы к Supabase Auth
   if (url.includes('/auth/v1/') || url.includes('/auth/v2/')) {
-    console.log('[AuthBlock] Заблокирован запрос к Auth:', url)
     return new Response(
       JSON.stringify({
         external: { anonymous_users: false, phone: { enabled: false }, email: { enabled: false } },
         disable_signup: true,
         mailer: { autoconfirm: true },
         user: null,
-        error_description: 'Auth disabled',
       }),
       {
         status: 200,
@@ -31,8 +27,15 @@ const authBlockFetch = async (
     )
   }
 
-  // Все остальные запросы (PostgREST, Storage) — пропускаем как обычно
-  return fetch(input, init)
+  try {
+    return await fetch(input, init)
+  } catch (err) {
+    console.warn('[FetchError]', url, err)
+    return new Response(JSON.stringify({ error: 'Network error' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -43,34 +46,29 @@ let cachedClient: ReturnType<typeof createSupabaseClient> | null = null
 export function createClient() {
   if (cachedClient) return cachedClient
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase env vars не настроены — будет использован fallback на SEED_DATA')
-    cachedClient = createSupabaseClient(
-      'https://placeholder.supabase.co',
-      'placeholder-key',
-      {
-        global: { fetch: authBlockFetch },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      }
-    )
-    return cachedClient
-  }
+  const url = supabaseUrl || 'https://placeholder.supabase.co'
+  const key = supabaseAnonKey || 'placeholder-key'
 
-  cachedClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    global: { fetch: authBlockFetch },
+  cachedClient = createSupabaseClient(url, key, {
+    global: {
+      fetch: authBlockFetch,
+    },
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
+    },
+    db: {
+      schema: 'public',
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 0,
+      },
     },
   })
 
   return cachedClient
 }
 
-// Алиас для обратной совместимости
 export const createSupabaseClient = createClient
