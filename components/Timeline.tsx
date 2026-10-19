@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { memo, useMemo, useEffect, useRef, useCallback, useState } from "react";
 import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, Training } from "@/lib/types";
@@ -233,18 +233,18 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
             if (startLeft + width < 0 || startLeft > totalWidth) return null;
             return (
-              // zIndex: 6 — ВЫШЕ плашек командировок (zIndex: 4). Так маркеры услуг НЕ уходят под плашки.
+              // zIndex: 2 — Стеклянная полоса ПОД плашками командировок (zIndex: 4). Маркеры вынесены отдельным слоем z-10.
               <div key={`sp-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 6 }}>
                 {/* Прозрачная стеклянная полоса периода услуг */}
                 <div style={{ position: "absolute", top: 6, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }} />
                 {/* Маркер НАЧАЛА услуг — кружок со стрелкой вниз + цифра даты */}
-                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 7 }}>
+                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
                   <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_START_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_START_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pStart.getDate()}</div>
                 </div>
                 {/* Маркер КОНЦА услуг — кружок со стрелкой вниз + цифра даты */}
-                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 7 }}>
+                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_END_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
                   <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_END_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_END_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pEnd.getDate()}</div>
@@ -258,6 +258,32 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
               <button key={`trip-${ti}`} onClick={() => handleTripClick(tb.trip)} style={{ position: "absolute", top: 8, left: tb.left, width: Math.max(tb.width - 2, PX_PER_DAY - 2), height: ROW_HEIGHT - 16, background: TRIP_BAR_COLOR, border: "none", borderRadius: 5, color: "#fff", fontSize: 9, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", overflow: "hidden", boxShadow: `0 2px 4px ${TRIP_BAR_COLOR}30`, transition: "all 0.15s ease", zIndex: 4 }} onMouseEnter={(e) => { (e.currentTarget).style.background = TRIP_BAR_HOVER; (e.currentTarget).style.transform = "scale(1.02)"; (e.currentTarget).style.zIndex = "10"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = TRIP_BAR_COLOR; (e.currentTarget).style.transform = "scale(1)"; (e.currentTarget).style.zIndex = "4"; }} title={tb.names.join(", ") + ": " + tb.trip.start + " → " + tb.trip.end}>
                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName}</span>
               </button>
+            );
+          })}
+
+          {/* === СЛОЙ 3: Маркеры начала/конца услуг (z-10) — ВЫШЕ всех элементов, включая today line (z-8) === */}
+          {objPeriods.map((period, pi) => {
+            const pStart = parseDate(period.start);
+            const pEnd = parseDate(period.end);
+            const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
+            const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY;
+            const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
+            if (startLeft + width < 0 || startLeft > totalWidth) return null;
+            return (
+              <div key={`sp-mark- + '' + `} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 10 }}>
+                {/* Маркер НАЧАЛА услуг */}
+                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
+                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid  + '' + `, marginTop: -1 }} />
+                  <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_START_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pStart.getDate()}</div>
+                </div>
+                {/* Маркер КОНЦА услуг */}
+                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_END_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
+                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid  + '' + `, marginTop: -1 }} />
+                  <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_END_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pEnd.getDate()}</div>
+                </div>
+              </div>
             );
           })}
         </div>
