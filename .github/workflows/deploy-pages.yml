@@ -43,7 +43,7 @@ jobs:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_SUPABASE_URL: https://tchdcqflcfuhsgqaquzn.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjaGRjcWZsY2Z1aHNncWFxdXpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEzODM4NDksImV4cCI6MjEwNjk1OTg0OX0.c0Z1ILIISm0zRcY79V8tbjUKY7bzQa17RFBanaAVFnU
-          NEXT_PUBLIC_SITE_PASSWORD: ${{ secrets.NEXT_PUBLIC_SITE_PASSWORD }}
+          NEXT_PUBLIC_SITE_PASSWORD: DkL-Yrt-k4s-xv7
         run: npm run build
 
       - name: Upload artifact
