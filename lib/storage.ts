@@ -1,134 +1,123 @@
 import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training } from "./types";
 import { SEED_DATA } from "./data";
-import { createClient } from "./supabase-browser";
+import { createSupabaseClient } from "./supabase-browser";
 
 const CACHE_KEY = "trip-schedule-cache";
-const LOAD_TIMEOUT_MS = 8000; // 8 секунд максимум на загрузку из Supabase
 
-// === Внутренняя функция загрузки без таймаута ===
-async function doLoadData(): Promise<AppData> {
-  const supabase = createClient();
-
-  const results = await Promise.allSettled([
-    supabase.from("specialists").select("*").order("id"),
-    supabase.from("trips").select("*").order("start_date"),
-    supabase.from("service_periods").select("*"),
-    supabase.from("vacations").select("*"),
-    supabase.from("trainings").select("*"),
-  ]);
-
-  const specs = results[0].status === "fulfilled" ? results[0].value : null;
-  const tripsRes = results[1].status === "fulfilled" ? results[1].value : null;
-  const spRes = results[2].status === "fulfilled" ? results[2].value : null;
-  const vacRes = results[3].status === "fulfilled" ? results[3].value : null;
-  const trRes = results[4].status === "fulfilled" ? results[4].value : null;
-
-  // Если есть критическая ошибка — кеш/seed
-  if (specs?.error || tripsRes?.error) {
-    console.warn("Supabase ошибка, используем кеш/seed:", specs?.error || tripsRes?.error);
-    return loadFromCacheOrSeed();
-  }
-
-  const specialists: Specialist[] = (specs?.data || []).map((s: any) => ({
-    id: s.id,
-    name: s.name,
-    color: s.color,
-  }));
-
-  // Парсим trips с обратной совместимостью
-  const tripsList: Trip[] = (tripsRes?.data || []).map((t: any) => {
-    let specialistIds: string[];
-    if (t.specialist_ids) {
-      try {
-        specialistIds = JSON.parse(t.specialist_ids);
-        if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
-      } catch {
-        specialistIds = t.specialist_id ? [t.specialist_id] : [];
-      }
-    } else if (t.specialist_id) {
-      specialistIds = [t.specialist_id];
-    } else {
-      specialistIds = [];
-    }
-
-    return {
-      id: t.id,
-      specialistIds,
-      city: t.city,
-      purpose: t.purpose,
-      equipment: t.equipment || undefined,
-      start: t.start_date,
-      end: t.end_date,
-      note: t.note || undefined,
-    };
-  });
-
-  const servicePeriods: ServicePeriod[] = (spRes?.data || []).map((sp: any) => ({
-    id: sp.id,
-    objectId: sp.object_id,
-    start: sp.start_date,
-    end: sp.end_date,
-  }));
-
-  const vacations: Vacation[] = (vacRes?.data || []).map((v: any) => ({
-    id: v.id,
-    specialistId: v.specialist_id,
-    start: v.start_date,
-    end: v.end_date,
-  }));
-
-  const trainings: Training[] = (trRes?.data || []).map((t: any) => ({
-    id: t.id,
-    specialistId: t.specialist_id,
-    title: t.title || "",
-    start: t.start_date,
-    end: t.end_date,
-  }));
-
-  // Архив из localStorage (metadata, не критично)
-  let archivedIds: string[] = [];
-  try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached) as AppData;
-      archivedIds = parsed.archivedIds || [];
-    }
-  } catch {}
-
-  // Если база пуста — сидируем
-  if (specialists.length === 0 && tripsList.length === 0) {
-    await seedInitialData().catch(() => {});
-    const fresh = await loadDataFromSupabase(supabase);
-    if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
-      const result = { ...fresh, archivedIds };
-      saveToCache(result);
-      return result;
-    }
-    saveToCache(SEED_DATA);
-    return SEED_DATA;
-  }
-
-  const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations, trainings, archivedIds };
-  saveToCache(result);
-  return result;
-}
-
-// === Публичная функция с таймаутом ===
+// === Загрузка всех данных из Supabase ===
 export async function loadData(): Promise<AppData> {
   try {
-    return await Promise.race([
-      doLoadData(),
-      new Promise<AppData>((_, reject) =>
-        setTimeout(() => reject(new Error(`Supabase timeout: не удалось загрузить данные за ${LOAD_TIMEOUT_MS}мс`)), LOAD_TIMEOUT_MS)
-      ),
+    const supabase = createSupabaseClient();
+
+    const results = await Promise.allSettled([
+      supabase.from("specialists").select("*").order("id"),
+      supabase.from("trips").select("*").order("start_date"),
+      supabase.from("service_periods").select("*"),
+      supabase.from("vacations").select("*"),
+      supabase.from("trainings").select("*"),
     ]);
+
+    const specs = results[0].status === "fulfilled" ? results[0].value : null;
+    const tripsRes = results[1].status === "fulfilled" ? results[1].value : null;
+    const spRes = results[2].status === "fulfilled" ? results[2].value : null;
+    const vacRes = results[3].status === "fulfilled" ? results[3].value : null;
+    const trRes = results[4].status === "fulfilled" ? results[4].value : null;
+
+    // Если есть критическая ошибка — кеш/seed
+    if (specs?.error || tripsRes?.error) {
+      console.warn("Supabase ошибка, используем кеш/seed:", specs?.error || tripsRes?.error);
+      return loadFromCacheOrSeed();
+    }
+
+    const specialists: Specialist[] = (specs?.data || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      color: s.color,
+    }));
+
+    // Парсим trips с обратной совместимостью
+    const tripsList: Trip[] = (tripsRes?.data || []).map((t: any) => {
+      let specialistIds: string[];
+      if (t.specialist_ids) {
+        try {
+          specialistIds = JSON.parse(t.specialist_ids);
+          if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
+        } catch {
+          specialistIds = t.specialist_id ? [t.specialist_id] : [];
+        }
+      } else if (t.specialist_id) {
+        specialistIds = [t.specialist_id];
+      } else {
+        specialistIds = [];
+      }
+
+      return {
+        id: t.id,
+        specialistIds,
+        city: t.city,
+        purpose: t.purpose,
+        equipment: t.equipment || undefined,
+        start: t.start_date,
+        end: t.end_date,
+        note: t.note || undefined,
+      };
+    });
+
+    const servicePeriods: ServicePeriod[] = (spRes?.data || []).map((sp: any) => ({
+      id: sp.id,
+      objectId: sp.object_id,
+      start: sp.start_date,
+      end: sp.end_date,
+    }));
+
+    const vacations: Vacation[] = (vacRes?.data || []).map((v: any) => ({
+      id: v.id,
+      specialistId: v.specialist_id,
+      start: v.start_date,
+      end: v.end_date,
+    }));
+
+    const trainings: Training[] = (trRes?.data || []).map((t: any) => ({
+      id: t.id,
+      specialistId: t.specialist_id,
+      title: t.title || "",
+      start: t.start_date,
+      end: t.end_date,
+    }));
+
+    // Архив из localStorage (metadata, не критично)
+    let archivedIds: string[] = [];
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as AppData;
+        archivedIds = parsed.archivedIds || [];
+      }
+    } catch {}
+
+    // Если база пуста — сидируем
+    if (specialists.length === 0 && tripsList.length === 0) {
+      await seedInitialData().catch(() => {});
+      const fresh = await loadDataFromSupabase(supabase);
+      if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
+        const result = { ...fresh, archivedIds };
+        saveToCache(result);
+        return result;
+      }
+      saveToCache(SEED_DATA);
+      return SEED_DATA;
+    }
+
+    const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations, trainings, archivedIds };
+    saveToCache(result);
+    return result;
   } catch (e) {
-    console.error("Ошибка загрузки данных (используем кеш/seed):", e);
+    console.error("Ошибка загрузки данных:", e);
     return loadFromCacheOrSeed();
   }
 }
 
-async function loadDataFromSupabase(supabase: ReturnType<typeof createClient>): Promise<AppData | null> {
+async function loadDataFromSupabase(supabase: ReturnType<typeof createSupabaseClient>): Promise<AppData | null> {
   try {
     const results = await Promise.allSettled([
       supabase.from("specialists").select("*").order("id"),
@@ -218,7 +207,7 @@ function loadFromCacheOrSeed(): AppData {
 
 // === Сидирование ===
 async function seedInitialData(): Promise<void> {
-  const supabase = createClient();
+  const supabase = createSupabaseClient();
 
   await supabase.from("specialists").insert(
     SEED_DATA.specialists.map((s) => ({ id: s.id, name: s.name, color: s.color }))
@@ -260,7 +249,7 @@ async function seedInitialData(): Promise<void> {
 // === Сохранение командировки ===
 export async function saveTrip(trip: Trip): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     const { error } = await supabase.from("trips").upsert({
       id: trip.id,
       specialist_id: trip.specialistIds[0] || "",
@@ -281,7 +270,7 @@ export async function saveTrip(trip: Trip): Promise<void> {
 // === Удаление командировки ===
 export async function deleteTrip(tripId: string): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     await supabase.from("trips").delete().eq("id", tripId);
   } catch {}
 }
@@ -289,7 +278,7 @@ export async function deleteTrip(tripId: string): Promise<void> {
 // === Сохранение специалиста ===
 export async function saveSpecialist(specialist: Specialist): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     await supabase.from("specialists").upsert({
       id: specialist.id, name: specialist.name, color: specialist.color,
     });
@@ -299,7 +288,7 @@ export async function saveSpecialist(specialist: Specialist): Promise<void> {
 // === Сохранение периодов оказания услуг для объекта ===
 export async function saveServicePeriods(objectId: string, periods: ServicePeriod[]): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     await supabase.from("service_periods").delete().eq("object_id", objectId);
     if (periods.length > 0) {
       const { error } = await supabase.from("service_periods").insert(
@@ -317,7 +306,7 @@ export async function saveServicePeriods(objectId: string, periods: ServicePerio
 // === Сохранение отпуска ===
 export async function saveVacation(vacation: Vacation): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     const { error } = await supabase.from("vacations").upsert({
       id: vacation.id,
       specialist_id: vacation.specialistId,
@@ -333,7 +322,7 @@ export async function saveVacation(vacation: Vacation): Promise<void> {
 // === Удаление отпуска ===
 export async function deleteVacation(vacationId: string): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     await supabase.from("vacations").delete().eq("id", vacationId);
   } catch {}
 }
@@ -341,7 +330,7 @@ export async function deleteVacation(vacationId: string): Promise<void> {
 // === Сохранение обучения (Supabase) ===
 export async function saveTraining(training: Training): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     const { error } = await supabase.from("trainings").upsert({
       id: training.id,
       specialist_id: training.specialistId,
@@ -358,7 +347,7 @@ export async function saveTraining(training: Training): Promise<void> {
 // === Удаление обучения ===
 export async function deleteTraining(trainingId: string): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createSupabaseClient();
     await supabase.from("trainings").delete().eq("id", trainingId);
   } catch {}
 }
