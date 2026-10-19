@@ -368,16 +368,23 @@ export function Timeline({
     [vacations, range.start, specialists]
   );
 
-  // === CSS для вертикальных линий (оптимизация) ===
-  const gridBackground = useMemo(() => {
-    const lines: string[] = [];
-    for (let i = 0; i < days.length; i++) {
-      const day = days[i];
-      const color = isWeekend(day) ? "rgba(220,38,38,0.06)" : "rgba(0,0,0,0.03)";
-      lines.push(`${color} ${i * PX_PER_DAY}px, ${color} ${i * PX_PER_DAY + 1}px`);
-    }
-    return `linear-gradient(to right, ${lines.join(", ")})`;
-  }, [days]);
+  // === CSS для вертикальных линий (ПРАВИЛЬНЫЙ repeating-linear-gradient) ===
+  const gridStyle = useMemo(() => {
+    const startDow = range.start.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const satOffset = ((6 - startDow) + 7) % 7;
+    const sunOffset = (7 - startDow) % 7;
+    const weekPx = 7 * PX_PER_DAY;
+    return {
+      backgroundImage: `
+        repeating-linear-gradient(to right, rgba(0,0,0,0.055) 0, rgba(0,0,0,0.055) 1px, transparent 1px, transparent ${PX_PER_DAY}px),
+        repeating-linear-gradient(to right, rgba(220,38,38,0.05) 0, rgba(220,38,38,0.05) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px),
+        repeating-linear-gradient(to right, rgba(220,38,38,0.05) 0, rgba(220,38,38,0.05) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px)
+      `,
+      backgroundRepeat: "repeat, repeat, repeat",
+      backgroundSize: `${PX_PER_DAY}px 100%, ${weekPx}px 100%, ${weekPx}px 100%`,
+      backgroundPosition: `0 0, ${satOffset * PX_PER_DAY}px 0, ${sunOffset * PX_PER_DAY}px 0`,
+    };
+  }, [range.start]);
 
   // === Рендер левой колонки ===
   const renderLeftRow = (row: typeof rows[0], idx: number) => {
@@ -983,8 +990,7 @@ export function Timeline({
               style={{
                 width: totalWidth,
                 position: "relative",
-                backgroundImage: gridBackground,
-                backgroundRepeat: "no-repeat",
+                ...gridStyle,
               }}
             >
               {/* Линия «сегодня» */}
