@@ -9,6 +9,7 @@ import { AddTrainingModal } from "@/components/AddTrainingModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
 import AuthGuard from "@/components/AuthGuard";
+import AdminPanel from "@/components/AdminPanel";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
@@ -60,6 +61,19 @@ function LoadingBar() {
 }
 
 export default function Home() {
+  // Hash routing для админки (GitHub Pages не поддерживает server-side routing)
+  const [showAdmin, setShowAdmin] = useState(() => 
+    typeof window !== 'undefined' && window.location.hash === '#/admin'
+  );
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setShowAdmin(window.location.hash === '#/admin');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   // Lazy-инициализатор: читаем localStorage СИНХРОННО при первом render.
   // Это устраняет "мигание" (командировки появляются из seed, потом исчезают после useEffect).
   const [data, setData] = useState<AppData>(() => loadFromCacheSync() || SEED_DATA);
@@ -210,6 +224,9 @@ export default function Home() {
 
   return (
     <AuthGuard>
+      {showAdmin ? (
+        <AdminPanel onBack={() => { window.location.hash = ''; setShowAdmin(false); }} />
+      ) : (
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
@@ -222,6 +239,7 @@ export default function Home() {
           {viewingTrip && <TripDetailsModal trip={viewingTrip} specialists={data.specialists} servicePeriods={data.servicePeriods} onClose={() => setViewingTrip(null)} onEdit={() => { setEditingTrip(viewingTrip); setShowAddModal(true); }} onDelete={() => handleDeleteTrip(viewingTrip.id)} />}
         </div>}
       </ErrorBoundary>
+      )}
     </AuthGuard>
   );
 }
