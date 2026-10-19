@@ -2,10 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-browser'
+
+const COOKIE_NAME = 'trip_schedule_auth'
+
+function setAuthCookie(value: string, days = 30) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString()
+  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`
+}
+
+function getAuthCookie(): string | null {
+  const match = document.cookie.match(new RegExp(`(^| )${COOKIE_NAME}=([^;]+)`))
+  return match ? decodeURIComponent(match[2]) : null
+}
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -14,14 +24,12 @@ export default function LoginPage() {
 
   // Проверяем, не авторизован ли пользователь уже
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.replace('/')
-      } else {
-        setCheckingSession(false)
-      }
-    })
+    const token = getAuthCookie()
+    if (token === 'authenticated') {
+      router.replace('/')
+    } else {
+      setCheckingSession(false)
+    }
   }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -29,32 +37,38 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    if (!email || !password) {
-      setError('Введите email и пароль')
+    if (!password) {
+      setError('Введите пароль')
       setLoading(false)
       return
     }
 
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (authError) {
-      if (authError.message === 'Invalid login credentials') {
-        setError('Неверный email или пароль')
-      } else if (authError.message === 'Email not confirmed') {
-        setError('Email не подтверждён. Проверьте почту.')
-      } else {
-        setError(authError.message)
+    // Попытка 1: Vercel API route (если доступен)
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      if (res.ok) {
+        setAuthCookie('authenticated')
+        router.push('/')
+        return
       }
-      setLoading(false)
+    } catch {
+      // API route не доступен (GitHub Pages) — пробуем клиентскую проверку
+    }
+
+    // Попытка 2: GitHub Pages — проверка через NEXT_PUBLIC_SITE_PASSWORD
+    const sitePassword = process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026'
+    if (password === sitePassword) {
+      setAuthCookie('authenticated')
+      router.push('/')
       return
     }
 
-    // AuthGate автоматически заметит сессию и пропустит на главную
-    router.push('/')
+    setError('Неверный пароль')
+    setLoading(false)
   }
 
   if (checkingSession) {
@@ -122,40 +136,6 @@ export default function LoginPage() {
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: '16px' }}>
             <label
-              htmlFor="email"
-              style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                marginBottom: '8px',
-                color: '#374151',
-              }}
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                outline: 'none',
-                boxSizing: 'border-box',
-              }}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label
               htmlFor="password"
               style={{
                 display: 'block',
@@ -171,6 +151,7 @@ export default function LoginPage() {
               id="password"
               type="password"
               required
+              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{

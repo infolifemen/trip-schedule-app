@@ -2,17 +2,20 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-browser'
+
+const COOKIE_NAME = 'trip_schedule_auth'
+
+function clearAuthCookie() {
+  document.cookie = `${COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax`
+}
 
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setLoading(true)
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    // AuthGate автоматически заметит потерю сессии и редиректнет на /login
+    clearAuthCookie()
     router.push('/login')
   }
 
