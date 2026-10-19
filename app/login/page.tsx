@@ -1,85 +1,96 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
 
-    try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      })
+    // Пароль доступен и клиенту (NEXT_PUBLIC_*) и серверу (SITE_PASSWORD).
+    // Это позволяет использовать статический экспорт на GitHub Pages.
+    // Серверный маршрут /api/login оставлен для обратной совместимости
+    // с Vercel-сборкой, но больше не вызывается — проверка идёт здесь.
+    const correctPassword =
+      process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026';
 
-      const data = await response.json()
-
-      if (data.success) {
-        // Устанавливаем cookie на 30 дней
-        document.cookie = 'trip_schedule_auth=true; path=/; max-age=2592000; SameSite=Lax'
-        window.location.href = '/'
-      } else {
-        setError(data.error || 'Неверный пароль')
-        setLoading(false)
-      }
-    } catch (err) {
-      setError('Ошибка соединения с сервером')
-      setLoading(false)
+    if (!password) {
+      setError('Введите пароль');
+      setLoading(false);
+      return;
     }
-  }
+
+    if (password === correctPassword) {
+      document.cookie =
+        'trip_schedule_auth=true; path=/; max-age=2592000; SameSite=Lax';
+      // router.push корректно учитывает basePath на GitHub Pages
+      router.push('/');
+    } else {
+      setError('Неверный пароль');
+      setLoading(false);
+    }
+  };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: '#f0eeeb',
-      fontFamily: "'Inter', sans-serif"
-    }}>
-      <div style={{
-        maxWidth: '400px',
-        width: '100%',
-        padding: '32px',
-        background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{
-          fontSize: '24px',
-          fontWeight: 'bold',
-          textAlign: 'center',
-          marginBottom: '8px',
-          color: '#1a1a1a'
-        }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f0eeeb',
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '400px',
+          width: '100%',
+          padding: '32px',
+          background: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            textAlign: 'center',
+            marginBottom: '8px',
+            color: '#1a1a1a',
+          }}
+        >
           График командировок
         </h2>
-        <p style={{
-          fontSize: '14px',
-          textAlign: 'center',
-          marginBottom: '24px',
-          color: '#6b7280'
-        }}>
+        <p
+          style={{
+            fontSize: '14px',
+            textAlign: 'center',
+            marginBottom: '24px',
+            color: '#6b7280',
+          }}
+        >
           Введите пароль для доступа
         </p>
-        
+
         <form onSubmit={handleLogin}>
           <div style={{ marginBottom: '16px' }}>
-            <label 
-              htmlFor="password" 
+            <label
+              htmlFor="password"
               style={{
                 display: 'block',
                 fontSize: '14px',
                 fontWeight: '500',
                 marginBottom: '8px',
-                color: '#374151'
+                color: '#374151',
               }}
             >
               Пароль
@@ -98,22 +109,24 @@ export default function LoginPage() {
                 border: '1px solid #d1d5db',
                 borderRadius: '8px',
                 outline: 'none',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
               }}
               placeholder="Введите пароль"
             />
           </div>
 
           {error && (
-            <div style={{
-              padding: '12px',
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
-              marginBottom: '16px',
-              color: '#dc2626',
-              fontSize: '14px'
-            }}>
+            <div
+              style={{
+                padding: '12px',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '8px',
+                marginBottom: '16px',
+                color: '#dc2626',
+                fontSize: '14px',
+              }}
+            >
               {error}
             </div>
           )}
@@ -131,15 +144,19 @@ export default function LoginPage() {
               border: 'none',
               borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background 0.2s'
+              transition: 'background 0.2s',
             }}
-            onMouseOver={(e) => !loading && (e.currentTarget.style.background = '#2563eb')}
-            onMouseOut={(e) => !loading && (e.currentTarget.style.background = '#3b82f6')}
+            onMouseOver={(e) =>
+              !loading && (e.currentTarget.style.background = '#2563eb')
+            }
+            onMouseOut={(e) =>
+              !loading && (e.currentTarget.style.background = '#3b82f6')
+            }
           >
             {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
       </div>
     </div>
-  )
+  );
 }
