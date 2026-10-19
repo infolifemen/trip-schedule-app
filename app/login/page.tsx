@@ -1,42 +1,80 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase-browser'
 
 export default function LoginPage() {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
+  const router = useRouter()
+
+  // Проверяем, не авторизован ли пользователь уже
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.replace('/')
+      } else {
+        setCheckingSession(false)
+      }
+    })
+  }, [router])
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
 
-    // Пароль доступен и клиенту (NEXT_PUBLIC_*) и серверу (SITE_PASSWORD).
-    // Это позволяет использовать статический экспорт на GitHub Pages.
-    // Серверный маршрут /api/login оставлен для обратной совместимости
-    // с Vercel-сборкой, но больше не вызывается — проверка идёт здесь.
-    const correctPassword =
-      process.env.NEXT_PUBLIC_SITE_PASSWORD || 'grafik2026';
-
-    if (!password) {
-      setError('Введите пароль');
-      setLoading(false);
-      return;
+    if (!email || !password) {
+      setError('Введите email и пароль')
+      setLoading(false)
+      return
     }
 
-    if (password === correctPassword) {
-      document.cookie =
-        'trip_schedule_auth=true; path=/; max-age=2592000; SameSite=Lax';
-      // router.push корректно учитывает basePath на GitHub Pages
-      router.push('/');
-    } else {
-      setError('Неверный пароль');
-      setLoading(false);
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError) {
+      if (authError.message === 'Invalid login credentials') {
+        setError('Неверный email или пароль')
+      } else if (authError.message === 'Email not confirmed') {
+        setError('Email не подтверждён. Проверьте почту.')
+      } else {
+        setError(authError.message)
+      }
+      setLoading(false)
+      return
     }
-  };
+
+    // AuthGate автоматически заметит сессию и пропустит на главную
+    router.push('/')
+  }
+
+  if (checkingSession) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f0eeeb',
+          fontFamily: "'Inter', sans-serif",
+          color: '#6b7280',
+          fontSize: 14,
+        }}
+      >
+        Проверка сессии…
+      </div>
+    )
+  }
 
   return (
     <div
@@ -78,10 +116,44 @@ export default function LoginPage() {
             color: '#6b7280',
           }}
         >
-          Введите пароль для доступа
+          Войдите для доступа к системе
         </p>
 
         <form onSubmit={handleLogin}>
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              htmlFor="email"
+              style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                marginBottom: '8px',
+                color: '#374151',
+              }}
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+              placeholder="you@example.com"
+              autoComplete="email"
+            />
+          </div>
+
           <div style={{ marginBottom: '16px' }}>
             <label
               htmlFor="password"
@@ -99,7 +171,6 @@ export default function LoginPage() {
               id="password"
               type="password"
               required
-              autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{
@@ -112,6 +183,7 @@ export default function LoginPage() {
                 boxSizing: 'border-box',
               }}
               placeholder="Введите пароль"
+              autoComplete="current-password"
             />
           </div>
 
@@ -158,5 +230,5 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
-  );
+  )
 }
