@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useEffect, useRef, useCallback, useState } from "react";
+import { memo, useMemo, useEffect, useRef, useCallback, useState } from "react";
 import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, Training } from "@/lib/types";
 import { parseDate, diffDays, addDays, startOfMonth, today } from "@/lib/data";
 
@@ -77,6 +77,70 @@ function ObjectTooltip({ obj, servicePeriods, position }: { obj: TimelineObject;
   );
 }
 
+interface GridOverlayProps {
+  totalDays: number;
+  px: number;
+  months: { left: number; width: number }[];
+  rangeStart: Date;
+  showDayLines?: boolean;
+  showMonthLines?: boolean;
+  showWeekend?: boolean;
+}
+
+const GridOverlay = memo(function GridOverlay({
+  totalDays,
+  px,
+  months,
+  rangeStart,
+  showDayLines = true,
+  showMonthLines = true,
+  showWeekend = true,
+}: GridOverlayProps) {
+  const elements: JSX.Element[] = [];
+  if (showWeekend) {
+    for (let i = 0; i < totalDays; i++) {
+      const d = addDays(rangeStart, i);
+      if (isWeekend(d)) {
+        elements.push(
+          <div
+            key={`w${i}`}
+            data-testid={`weekend-${i}`}
+            style={{ position: "absolute", top: 0, bottom: 0, left: i * px, width: px, background: "rgba(220,38,38,0.04)", pointerEvents: "none" }}
+          />
+        );
+      }
+    }
+  }
+  if (showDayLines) {
+    for (let i = 1; i < totalDays; i++) {
+      elements.push(
+        <div
+          key={`d${i}`}
+          data-testid={`dayline-${i}`}
+          style={{ position: "absolute", top: 0, bottom: 0, left: i * px, width: 1, background: "rgba(0,0,0,0.08)", pointerEvents: "none" }}
+        />
+      );
+    }
+  }
+  if (showMonthLines) {
+    months.forEach((m, mi) => {
+      if (mi === 0) return;
+      elements.push(
+        <div
+          key={`m${mi}`}
+          data-testid={`monthline-${mi}`}
+          style={{ position: "absolute", top: 0, bottom: 0, left: m.left, width: 1, background: "rgba(0,0,0,0.14)", pointerEvents: "none" }}
+        />
+      );
+    });
+  }
+  return (
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none" }}>
+      {elements}
+    </div>
+  );
+});
+
 export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -123,16 +187,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   const handleTripClick = useCallback((trip: Trip) => { if (onSelectTrip) onSelectTrip(trip); }, [onSelectTrip]);
   const vacationBars = useMemo(() => mergeVacationBars(vacations, range.start, specialists), [vacations, range.start, specialists]);
 
-  // Единый источник геометрии: PX_PER_DAY используется и для ячеек шапки, и для gridStyle.
-  // Это гарантирует совпадение вертикальных линий с делениями дней на ЛЮБОМ масштабе (zoom) браузера.
-  const gridStyle = useMemo(() => {
-    const startDow = range.start.getDay(); const satOffset = ((6 - startDow) + 7) % 7; const sunOffset = (7 - startDow) % 7; const weekPx = 7 * PX_PER_DAY;
-    // Линия рисуется на ПРАВОМ крае ячейки (в точности там же, где borderRight ячейки дня в шапке)
-    return {
-      backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${PX_PER_DAY - 1}px, rgba(0,0,0,0.08) ${PX_PER_DAY - 1}px, rgba(0,0,0,0.08) ${PX_PER_DAY}px), repeating-linear-gradient(to right, rgba(220,38,38,0.06) 0, rgba(220,38,38,0.06) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px), repeating-linear-gradient(to right, rgba(220,38,38,0.06) 0, rgba(220,38,38,0.06) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px)`,
-      backgroundRepeat: "repeat, repeat, repeat", backgroundSize: `${PX_PER_DAY}px 100%, ${weekPx}px 100%, ${weekPx}px 100%`, backgroundPosition: `0 0, ${satOffset * PX_PER_DAY}px 0, ${sunOffset * PX_PER_DAY}px 0`,
-    };
-  }, [range.start]);
 
   const renderLeftRow = (row: typeof rows[0], idx: number) => {
     if (row.type === "object" && row.data) {
@@ -254,13 +308,15 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
           <div style={{ position: "sticky", top: 0, zIndex: 15, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
-              <div style={{ height: 28, position: "relative" }}>{months.map((m, i) => <div key={i} style={{ position: "absolute", top: 0, left: m.left, width: m.width, height: 28, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 600, color: TEXT_DIM, borderRight: `1px solid ${BORDER}` }}>{m.label}</div>)}</div>
-              <div style={{ height: 28, position: "relative" }}>{days.map((day, i) => { const weekend = isWeekend(day); const isToday = diffDays(day, today_date) === 0; return (<div key={i} style={{ position: "absolute", top: 0, left: i * PX_PER_DAY, width: PX_PER_DAY, height: 28, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 8, fontFamily: "'JetBrains Mono', monospace", fontWeight: isToday ? 700 : 500, color: isToday ? "#2563eb" : weekend ? "#dc2626" : TEXT_DIM, background: weekend ? "rgba(220,38,38,0.04)" : "transparent", borderRight: `0.5px solid ${BORDER}`, lineHeight: 1.2 }}><span>{formatDay(day)}</span><span style={{ fontSize: 6, opacity: 0.7 }}>{formatDayWeekday(day)}</span></div>); })}</div>
+              <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
+              <div style={{ height: 28, position: "relative" }}>{months.map((m, i) => <div key={i} data-testid={`monthcell-${i}`} style={{ position: "absolute", top: 0, left: m.left, width: m.width, height: 28, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 600, color: TEXT_DIM }}>{m.label}</div>)}</div>
+              <div style={{ height: 28, position: "relative" }}>{days.map((day, i) => { const weekend = isWeekend(day); const isToday = diffDays(day, today_date) === 0; return (<div key={i} data-testid={`daycell-${i}`} style={{ position: "absolute", top: 0, left: i * PX_PER_DAY, width: PX_PER_DAY, height: 28, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 8, fontFamily: "'JetBrains Mono', monospace", fontWeight: isToday ? 700 : 500, color: isToday ? "#2563eb" : weekend ? "#dc2626" : TEXT_DIM, lineHeight: 1.2 }}><span>{formatDay(day)}</span><span style={{ fontSize: 6, opacity: 0.7 }}>{formatDayWeekday(day)}</span></div>); })}</div>
             </div>
           </div>
           <div style={{ display: "flex" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 20, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
-            <div style={{ width: totalWidth, position: "relative", ...gridStyle }}>
+            <div style={{ width: totalWidth, position: "relative" }}>
+              <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}
               {rows.map((row, idx) => renderRightRow(row, idx))}
             </div>
