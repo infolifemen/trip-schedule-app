@@ -1,6 +1,19 @@
-// Client-side authentication with SHA-256 hashing
-// WARNING: This is client-side only - passwords are hashed but the code is public
+// Cloud-based authentication using Supabase RPC
+// All user data stored in Supabase cloud — works across all browsers and devices
 
+import { createSupabaseClient } from "./supabase-browser";
+
+const SESSION_KEY = "trip_auth_session";
+const SESSION_EXPIRY_DAYS = 30;
+
+interface StoredSession {
+  token: string;
+  username: string;
+  isAdmin: boolean;
+  expires: number;
+}
+
+// Legacy User type — kept for migrateLocalUsersToCloud
 export interface User {
   username: string;
   passwordHash: string;
@@ -8,199 +21,266 @@ export interface User {
   isAdmin?: boolean;
 }
 
-const STORAGE_KEY = 'trip_auth_users';
-const TOKEN_KEY = 'trip_auth_token';
-const TOKEN_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-// Generate SHA-256 hash
-async function sha256(message: string): Promise<string> {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Generate random salt
-function generateSalt(): string {
-  const array = new Uint8Array(16);
-  crypto.getRandomValues(array);
-  return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-// Hash password with salt
-export async function hashPassword(password: string, salt?: string): Promise<{ hash: string; salt: string }> {
-  const saltToUse = salt || generateSalt();
-  const hash = await sha256(password + saltToUse);
-  return { hash, salt: saltToUse };
-}
-
-// Get all users from localStorage
-export function getUsers(): User[] {
-  if (typeof window === 'undefined') return [];
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) return [];
+function getStoredSession(): StoredSession | null {
+  if (typeof window === "undefined") return null;
   try {
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-// Save users to localStorage
-export function saveUsers(users: User[]): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
-// Initialize default users (called once on first load)
-export async function initializeDefaultUsers(): Promise<void> {
-  const existing = getUsers();
-  if (existing.length > 0) return; // Already initialized
-
-  const defaultUsers = [
-    { username: 'admin', password: 'admin123', isAdmin: true },
-    { username: 'user1', password: 'pass123' },
-    { username: 'user2', password: 'pass123' },
-    { username: 'user3', password: 'pass123' },
-    { username: 'user4', password: 'pass123' },
-    { username: 'user5', password: 'pass123' },
-    { username: 'user6', password: 'pass123' },
-    { username: 'user7', password: 'pass123' },
-    { username: 'user8', password: 'pass123' },
-    { username: 'user9', password: 'pass123' },
-  ];
-
-  const users: User[] = [];
-  for (const u of defaultUsers) {
-    const { hash, salt } = await hashPassword(u.password);
-    users.push({
-      username: u.username,
-      passwordHash: hash,
-      salt,
-      isAdmin: u.isAdmin || false,
-    });
-  }
-
-  saveUsers(users);
-}
-
-// Validate password
-export async function validatePassword(username: string, password: string): Promise<boolean> {
-  const users = getUsers();
-  const user = users.find(u => u.username === username);
-  if (!user) return false;
-
-  const { hash } = await hashPassword(password, user.salt);
-  return hash === user.passwordHash;
-}
-
-// Login
-export async function login(username: string, password: string): Promise<boolean> {
-  const valid = await validatePassword(username, password);
-  if (!valid) return false;
-
-  const token = {
-    username,
-    expires: Date.now() + TOKEN_EXPIRY,
-  };
-  localStorage.setItem(TOKEN_KEY, JSON.stringify(token));
-  return true;
-}
-
-// Logout
-export function logout(): void {
-  localStorage.removeItem(TOKEN_KEY);
-}
-
-// Check if logged in
-export function isLoggedIn(): boolean {
-  if (typeof window === 'undefined') return false;
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return false;
-
-  try {
-    const parsed = JSON.parse(token);
-    if (parsed.expires < Date.now()) {
-      logout();
-      return false;
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Get current user
-export function getCurrentUser(): string | null {
-  if (typeof window === 'undefined') return null;
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return null;
-
-  try {
-    const parsed = JSON.parse(token);
-    if (parsed.expires < Date.now()) {
-      logout();
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as StoredSession;
+    if (s.expires < Date.now()) {
+      localStorage.removeItem(SESSION_KEY);
       return null;
     }
-    return parsed.username;
+    return s;
   } catch {
     return null;
   }
 }
 
-// Check if current user is admin
-export function isAdmin(): boolean {
-  const username = getCurrentUser();
-  if (!username) return false;
-  const users = getUsers();
-  const user = users.find(u => u.username === username);
-  return user?.isAdmin || false;
+function storeSession(session: StoredSession): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
-// Add new user
-export async function addUser(username: string, password: string, isAdminUser: boolean = false): Promise<boolean> {
-  const users = getUsers();
-  if (users.find(u => u.username === username)) {
-    return false; // User already exists
+export async function login(username: string, password: string): Promise<boolean> {
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.rpc("app_login", {
+      p_username: username,
+      p_password: password,
+    });
+    if (error || !data) {
+      console.warn("[login] RPC error:", error?.message);
+      return false;
+    }
+    const result = data as {
+      ok: boolean;
+      session_token?: string;
+      username?: string;
+      is_admin?: boolean;
+      error?: string;
+    };
+    if (!result.ok) {
+      console.warn("[login] Server error:", result.error);
+      return false;
+    }
+    storeSession({
+      token: result.session_token!,
+      username: result.username!,
+      isAdmin: !!result.is_admin,
+      expires: Date.now() + SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+    });
+    return true;
+  } catch (e) {
+    console.error("[login] Fatal:", e);
+    return false;
+  }
+}
+
+export function logout(): void {
+  const session = getStoredSession();
+  if (session) {
+    try {
+      const supabase = createSupabaseClient();
+      supabase.rpc("app_logout", { p_token: session.token }).catch(() => {});
+    } catch {
+      // ignore
+    }
+  }
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
+export function isLoggedIn(): boolean {
+  return getStoredSession() !== null;
+}
+
+export function getCurrentUser(): string | null {
+  return getStoredSession()?.username ?? null;
+}
+
+export function isAdmin(): boolean {
+  return getStoredSession()?.isAdmin ?? false;
+}
+
+export async function listUsers(): Promise<
+  Array<{ username: string; isAdmin: boolean }>
+> {
+  const session = getStoredSession();
+  if (!session) return [];
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.rpc("app_list_users", {
+      p_token: session.token,
+    });
+    if (error || !data) {
+      console.warn("[listUsers] error:", error?.message);
+      return [];
+    }
+    const result = data as {
+      ok: boolean;
+      users?: Array<{ username: string; is_admin: boolean }>;
+      error?: string;
+    };
+    if (!result.ok) return [];
+    return (result.users || []).map((u) => ({
+      username: u.username,
+      isAdmin: u.is_admin,
+    }));
+  } catch (e) {
+    console.error("[listUsers] fatal:", e);
+    return [];
+  }
+}
+
+export async function addUser(
+  username: string,
+  password: string,
+  isAdminUser: boolean = false
+): Promise<boolean> {
+  const session = getStoredSession();
+  if (!session) return false;
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.rpc("app_upsert_user", {
+      p_token: session.token,
+      p_username: username,
+      p_password: password,
+      p_is_admin: isAdminUser,
+    });
+    if (error || !data) {
+      console.warn("[addUser] error:", error?.message);
+      return false;
+    }
+    return (data as { ok: boolean }).ok;
+  } catch (e) {
+    console.error("[addUser] fatal:", e);
+    return false;
+  }
+}
+
+export async function updatePassword(
+  username: string,
+  newPassword: string
+): Promise<boolean> {
+  const session = getStoredSession();
+  if (!session) return false;
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.rpc("app_upsert_user", {
+      p_token: session.token,
+      p_username: username,
+      p_password: newPassword,
+      p_is_admin: isAdmin(),
+    });
+    if (error || !data) return false;
+    return (data as { ok: boolean }).ok;
+  } catch (e) {
+    console.error("[updatePassword] fatal:", e);
+    return false;
+  }
+}
+
+export async function removeUser(username: string): Promise<boolean> {
+  const session = getStoredSession();
+  if (!session) return false;
+  try {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase.rpc("app_delete_user", {
+      p_token: session.token,
+      p_username: username,
+    });
+    if (error || !data) return false;
+    return (data as { ok: boolean }).ok;
+  } catch (e) {
+    console.error("[removeUser] fatal:", e);
+    return false;
+  }
+}
+
+// Migrate existing localStorage users to cloud (one-time action from admin panel)
+export async function migrateLocalUsersToCloud(): Promise<{
+  migrated: number;
+  errors: string[];
+}> {
+  const session = getStoredSession();
+  if (!session) return { migrated: 0, errors: ["Не авторизован"] };
+
+  let localUsers: User[] = [];
+  try {
+    const raw = localStorage.getItem("trip_auth_users");
+    if (raw) localUsers = JSON.parse(raw);
+  } catch {
+    return {
+      migrated: 0,
+      errors: ["Не удалось прочитать локальных пользователей"],
+    };
   }
 
-  const { hash, salt } = await hashPassword(password);
-  users.push({
-    username,
-    passwordHash: hash,
-    salt,
-    isAdmin: isAdminUser,
-  });
-  saveUsers(users);
-  return true;
+  if (localUsers.length === 0) {
+    return { migrated: 0, errors: ["Нет локальных пользователей для миграции"] };
+  }
+
+  const supabase = createSupabaseClient();
+  let migrated = 0;
+  const errors: string[] = [];
+
+  for (const user of localUsers) {
+    try {
+      const { data, error } = await supabase.rpc("app_import_user", {
+        p_token: session.token,
+        p_username: user.username,
+        p_password_hash: user.passwordHash,
+        p_salt: user.salt,
+        p_is_admin: user.isAdmin || false,
+      });
+      if (error || !data || !(data as { ok: boolean }).ok) {
+        const msg =
+          error?.message ||
+          (data as { error?: string })?.error ||
+          "неизвестная ошибка";
+        errors.push(`${user.username}: ${msg}`);
+      } else {
+        migrated++;
+      }
+    } catch (e) {
+      errors.push(
+        `${user.username}: ${e instanceof Error ? e.message : String(e)}`
+      );
+    }
+  }
+
+  if (migrated > 0) {
+    try {
+      localStorage.removeItem("trip_auth_users");
+    } catch {
+      // ignore
+    }
+  }
+
+  return { migrated, errors };
 }
 
-// Update password
-export async function updatePassword(username: string, newPassword: string): Promise<boolean> {
-  const users = getUsers();
-  const user = users.find(u => u.username === username);
-  if (!user) return false;
-
-  const { hash, salt } = await hashPassword(newPassword);
-  user.passwordHash = hash;
-  user.salt = salt;
-  saveUsers(users);
-  return true;
+// No-op: default users are seeded by the migration SQL
+export async function initializeDefaultUsers(): Promise<void> {
+  return;
 }
 
-// Remove user
-export function removeUser(username: string): boolean {
-  const users = getUsers();
-  const filtered = users.filter(u => u.username !== username);
-  if (filtered.length === users.length) return false;
-  saveUsers(filtered);
-  return true;
-}
-
-// List all users (without passwords)
-export function listUsers(): Array<{ username: string; isAdmin: boolean }> {
-  return getUsers().map(u => ({
-    username: u.username,
-    isAdmin: u.isAdmin || false,
-  }));
+// Legacy compat
+export async function hashPassword(
+  password: string,
+  salt?: string
+): Promise<{ hash: string; salt: string }> {
+  const saltToUse =
+    salt ||
+    Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  const msgBuffer = new TextEncoder().encode(password + saltToUse);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hash = Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return { hash, salt: saltToUse };
 }

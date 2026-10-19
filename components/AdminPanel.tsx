@@ -1,7 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { listUsers, addUser, updatePassword, removeUser, isAdmin, getCurrentUser } from '@/lib/auth';
+import {
+  listUsers,
+  addUser,
+  updatePassword,
+  removeUser,
+  isAdmin,
+  getCurrentUser,
+  migrateLocalUsersToCloud,
+} from '@/lib/auth';
 
 export default function AdminPanel({ onBack }: { onBack: () => void }) {
   const [users, setUsers] = useState<Array<{ username: string; isAdmin: boolean }>>([]);
@@ -12,6 +20,20 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [editPassword, setEditPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const refreshUsers = async () => {
+    setLoading(true);
+    try {
+      const u = await listUsers();
+      setUsers(u);
+    } catch (e) {
+      console.error('refreshUsers:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -19,7 +41,7 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
       return;
     }
     setCurrentUser(getCurrentUser());
-    setUsers(listUsers());
+    refreshUsers();
   }, [onBack]);
 
   const handleAddUser = async (e: React.FormEvent) => {
@@ -31,16 +53,18 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    setLoading(true);
     const success = await addUser(newUsername, newPassword, newIsAdmin);
     if (success) {
-      setUsers(listUsers());
+      await refreshUsers();
       setNewUsername('');
       setNewPassword('');
       setNewIsAdmin(false);
       setMessage(`Пользователь ${newUsername} добавлен`);
     } else {
-      setMessage('Пользователь с таким именем уже существует');
+      setMessage('Ошибка: пользователь с таким именем уже существует или недостаточно прав');
     }
+    setLoading(false);
   };
 
   const handleUpdatePassword = async (username: string) => {
@@ -51,6 +75,7 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    setLoading(true);
     const success = await updatePassword(username, editPassword);
     if (success) {
       setEditingUser(null);
@@ -59,23 +84,43 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
     } else {
       setMessage('Ошибка обновления пароля');
     }
+    setLoading(false);
   };
 
-  const handleRemoveUser = (username: string) => {
+  const handleRemoveUser = async (username: string) => {
     if (username === currentUser) {
       setMessage('Нельзя удалить самого себя');
       return;
     }
 
     if (confirm(`Удалить пользователя ${username}?`)) {
-      const success = removeUser(username);
+      setLoading(true);
+      const success = await removeUser(username);
       if (success) {
-        setUsers(listUsers());
+        await refreshUsers();
         setMessage(`Пользователь ${username} удалён`);
       } else {
         setMessage('Ошибка удаления');
       }
+      setLoading(false);
     }
+  };
+
+  const handleSyncToCloud = async () => {
+    setMessage('');
+    setSyncing(true);
+    const result = await migrateLocalUsersToCloud();
+    if (result.migrated > 0) {
+      await refreshUsers();
+    }
+    if (result.errors.length === 0 && result.migrated > 0) {
+      setMessage(`✅ Синхронизировано ${result.migrated} пользователей в облако`);
+    } else if (result.migrated > 0 && result.errors.length > 0) {
+      setMessage(`Синхронизировано ${result.migrated}, ошибок: ${result.errors.length}\n${result.errors.join('\n')}`);
+    } else {
+      setMessage(result.errors.join('\n') || 'Нечего синхронизировать');
+    }
+    setSyncing(false);
   };
 
   const btnBase: React.CSSProperties = {
@@ -118,21 +163,67 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
         </button>
       </div>
 
+      <div style={{
+        padding: '12px 16px',
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: '8px',
+        color: '#1e40af',
+        fontSize: '13px',
+        marginBottom: '24px',
+      }}>
+        ☁️ <strong>Облачная синхронизация:</strong> все пользователи хранятся в облаке и доступны с любого устройства. Дефолтные: <code>admin / admin123</code>, <code>user1..user9 / pass123</code>.
+      </div>
+
       {message && (
         <div style={{
           padding: '12px 16px',
-          background: message.includes('ошибка') || message.includes('нельзя') || message.includes('существует') ? '#fef2f2' : '#f0fdf4',
-          border: `1px solid ${message.includes('ошибка') || message.includes('нельзя') || message.includes('существует') ? '#fecaca' : '#bbf7d0'}`,
+          background: message.includes('Ошибка') || message.includes('Нельзя') || message.includes('существует') || message.includes('ошибок') ? '#fef2f2' : '#f0fdf4',
+          border: `1px solid ${message.includes('Ошибка') || message.includes('Нельзя') || message.includes('существует') || message.includes('ошибок') ? '#fecaca' : '#bbf7d0'}`,
           borderRadius: '8px',
-          color: message.includes('ошибка') || message.includes('нельзя') || message.includes('существует') ? '#dc2626' : '#16a34a',
+          color: message.includes('Ошибка') || message.includes('Нельзя') || message.includes('существует') || message.includes('ошибок') ? '#dc2626' : '#16a34a',
           fontSize: '14px',
           marginBottom: '24px',
+          whiteSpace: 'pre-line',
         }}>
           {message}
         </div>
       )}
 
-      {/* Форма добавления */}
+      <div style={{
+        background: 'white',
+        padding: '20px 24px',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        border: '1px solid rgba(0,0,0,0.06)',
+        marginBottom: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <div>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
+            Перенос локальных пользователей
+          </h3>
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0 0' }}>
+            Если в этом браузере были созданы пользователи до перехода на облако — нажмите чтобы перенести их в Supabase.
+          </p>
+        </div>
+        <button
+          onClick={handleSyncToCloud}
+          disabled={syncing}
+          style={{
+            ...btnBase,
+            padding: '10px 18px',
+            background: syncing ? '#9ca3af' : '#8b5cf6',
+            color: 'white',
+            fontSize: '13px',
+          }}
+        >
+          {syncing ? 'Синхронизация...' : '☁️ Синхронизировать'}
+        </button>
+      </div>
+
       <div style={{
         background: 'white',
         padding: '24px',
@@ -156,6 +247,7 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
                 style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', outline: 'none' }}
                 placeholder="ivanov"
                 required
+                disabled={loading}
               />
             </div>
             <div>
@@ -167,22 +259,22 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
                 style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '8px', boxSizing: 'border-box', outline: 'none' }}
                 placeholder="••••••••"
                 required
+                disabled={loading}
               />
             </div>
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#5a5a72', cursor: 'pointer', marginBottom: '16px' }}>
-            <input type="checkbox" checked={newIsAdmin} onChange={(e) => setNewIsAdmin(e.target.checked)} style={{ cursor: 'pointer' }} />
+            <input type="checkbox" checked={newIsAdmin} onChange={(e) => setNewIsAdmin(e.target.checked)} style={{ cursor: 'pointer' }} disabled={loading} />
             Администратор (может управлять пользователями)
           </label>
 
-          <button type="submit" style={{ ...btnBase, padding: '12px 24px', background: '#2563eb', color: 'white', fontSize: '14px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}>
-            + Добавить пользователя
+          <button type="submit" disabled={loading} style={{ ...btnBase, padding: '12px 24px', background: loading ? '#9ca3af' : '#2563eb', color: 'white', fontSize: '14px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)' }}>
+            {loading ? 'Добавление...' : '+ Добавить пользователя'}
           </button>
         </form>
       </div>
 
-      {/* Список пользователей */}
       <div style={{
         background: 'white',
         padding: '24px',
@@ -190,9 +282,18 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
         border: '1px solid rgba(0,0,0,0.06)',
       }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#1a1a2e' }}>
-          Список пользователей ({users.length})
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>
+            Список пользователей ({users.length})
+          </h2>
+          <button
+            onClick={refreshUsers}
+            disabled={loading}
+            style={{ ...btnBase, background: '#e5e7eb', color: '#374151' }}
+          >
+            {loading ? 'Загрузка...' : 'Обновить'}
+          </button>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {users.map((user) => (
@@ -215,18 +316,19 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
                 <div style={{ display: 'flex', gap: '6px' }}>
                   <button
                     onClick={() => setEditingUser(editingUser === user.username ? null : user.username)}
+                    disabled={loading}
                     style={{ ...btnBase, background: editingUser === user.username ? '#6b7280' : '#f59e0b', color: 'white' }}
                   >
                     {editingUser === user.username ? 'Отмена' : 'Пароль'}
                   </button>
                   <button
                     onClick={() => handleRemoveUser(user.username)}
-                    disabled={user.username === currentUser}
+                    disabled={user.username === currentUser || loading}
                     style={{
                       ...btnBase,
                       background: user.username === currentUser ? '#e5e7eb' : '#ef4444',
                       color: user.username === currentUser ? '#9ca3af' : 'white',
-                      cursor: user.username === currentUser ? 'not-allowed' : 'pointer',
+                      cursor: user.username === currentUser || loading ? 'not-allowed' : 'pointer',
                     }}
                   >
                     Удалить
@@ -242,9 +344,10 @@ export default function AdminPanel({ onBack }: { onBack: () => void }) {
                     onChange={(e) => setEditPassword(e.target.value)}
                     placeholder="Новый пароль"
                     style={{ flex: 1, padding: '8px 12px', fontSize: '14px', border: '1px solid #e0e0e0', borderRadius: '6px', outline: 'none' }}
+                    disabled={loading}
                   />
-                  <button onClick={() => handleUpdatePassword(user.username)} style={{ ...btnBase, background: '#16a34a', color: 'white' }}>
-                    Сохранить
+                  <button onClick={() => handleUpdatePassword(user.username)} disabled={loading} style={{ ...btnBase, background: '#16a34a', color: 'white' }}>
+                    {loading ? '...' : 'Сохранить'}
                   </button>
                 </div>
               )}
