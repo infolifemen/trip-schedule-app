@@ -3,116 +3,127 @@ import { SEED_DATA } from "./data";
 import { createClient } from "./supabase-browser";
 
 const CACHE_KEY = "trip-schedule-cache";
+const LOAD_TIMEOUT_MS = 8000; // 8 секунд максимум на загрузку из Supabase
 
-// === Загрузка всех данных из Supabase ===
-export async function loadData(): Promise<AppData> {
-  try {
-    const supabase = createClient();
+// === Внутренняя функция загрузки без таймаута ===
+async function doLoadData(): Promise<AppData> {
+  const supabase = createClient();
 
-    const results = await Promise.allSettled([
-      supabase.from("specialists").select("*").order("id"),
-      supabase.from("trips").select("*").order("start_date"),
-      supabase.from("service_periods").select("*"),
-      supabase.from("vacations").select("*"),
-      supabase.from("trainings").select("*"),
-    ]);
+  const results = await Promise.allSettled([
+    supabase.from("specialists").select("*").order("id"),
+    supabase.from("trips").select("*").order("start_date"),
+    supabase.from("service_periods").select("*"),
+    supabase.from("vacations").select("*"),
+    supabase.from("trainings").select("*"),
+  ]);
 
-    const specs = results[0].status === "fulfilled" ? results[0].value : null;
-    const tripsRes = results[1].status === "fulfilled" ? results[1].value : null;
-    const spRes = results[2].status === "fulfilled" ? results[2].value : null;
-    const vacRes = results[3].status === "fulfilled" ? results[3].value : null;
-    const trRes = results[4].status === "fulfilled" ? results[4].value : null;
+  const specs = results[0].status === "fulfilled" ? results[0].value : null;
+  const tripsRes = results[1].status === "fulfilled" ? results[1].value : null;
+  const spRes = results[2].status === "fulfilled" ? results[2].value : null;
+  const vacRes = results[3].status === "fulfilled" ? results[3].value : null;
+  const trRes = results[4].status === "fulfilled" ? results[4].value : null;
 
-    // Если есть критическая ошибка — кеш/seed
-    if (specs?.error || tripsRes?.error) {
-      console.warn("Supabase ошибка, используем кеш/seed:", specs?.error || tripsRes?.error);
-      return loadFromCacheOrSeed();
+  // Если есть критическая ошибка — кеш/seed
+  if (specs?.error || tripsRes?.error) {
+    console.warn("Supabase ошибка, используем кеш/seed:", specs?.error || tripsRes?.error);
+    return loadFromCacheOrSeed();
+  }
+
+  const specialists: Specialist[] = (specs?.data || []).map((s: any) => ({
+    id: s.id,
+    name: s.name,
+    color: s.color,
+  }));
+
+  // Парсим trips с обратной совместимостью
+  const tripsList: Trip[] = (tripsRes?.data || []).map((t: any) => {
+    let specialistIds: string[];
+    if (t.specialist_ids) {
+      try {
+        specialistIds = JSON.parse(t.specialist_ids);
+        if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
+      } catch {
+        specialistIds = t.specialist_id ? [t.specialist_id] : [];
+      }
+    } else if (t.specialist_id) {
+      specialistIds = [t.specialist_id];
+    } else {
+      specialistIds = [];
     }
 
-    const specialists: Specialist[] = (specs?.data || []).map((s: any) => ({
-      id: s.id,
-      name: s.name,
-      color: s.color,
-    }));
-
-    // Парсим trips с обратной совместимостью
-    const tripsList: Trip[] = (tripsRes?.data || []).map((t: any) => {
-      let specialistIds: string[];
-      if (t.specialist_ids) {
-        try {
-          specialistIds = JSON.parse(t.specialist_ids);
-          if (!Array.isArray(specialistIds)) specialistIds = [t.specialist_id || t.specialist_ids];
-        } catch {
-          specialistIds = t.specialist_id ? [t.specialist_id] : [];
-        }
-      } else if (t.specialist_id) {
-        specialistIds = [t.specialist_id];
-      } else {
-        specialistIds = [];
-      }
-
-      return {
-        id: t.id,
-        specialistIds,
-        city: t.city,
-        purpose: t.purpose,
-        equipment: t.equipment || undefined,
-        start: t.start_date,
-        end: t.end_date,
-        note: t.note || undefined,
-      };
-    });
-
-    const servicePeriods: ServicePeriod[] = (spRes?.data || []).map((sp: any) => ({
-      id: sp.id,
-      objectId: sp.object_id,
-      start: sp.start_date,
-      end: sp.end_date,
-    }));
-
-    const vacations: Vacation[] = (vacRes?.data || []).map((v: any) => ({
-      id: v.id,
-      specialistId: v.specialist_id,
-      start: v.start_date,
-      end: v.end_date,
-    }));
-
-    const trainings: Training[] = (trRes?.data || []).map((t: any) => ({
+    return {
       id: t.id,
-      specialistId: t.specialist_id,
-      title: t.title || "",
+      specialistIds,
+      city: t.city,
+      purpose: t.purpose,
+      equipment: t.equipment || undefined,
       start: t.start_date,
       end: t.end_date,
-    }));
+      note: t.note || undefined,
+    };
+  });
 
-    // Архив из localStorage (metadata, не критично)
-    let archivedIds: string[] = [];
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const parsed = JSON.parse(cached) as AppData;
-        archivedIds = parsed.archivedIds || [];
-      }
-    } catch {}
+  const servicePeriods: ServicePeriod[] = (spRes?.data || []).map((sp: any) => ({
+    id: sp.id,
+    objectId: sp.object_id,
+    start: sp.start_date,
+    end: sp.end_date,
+  }));
 
-    // Если база пуста — сидируем
-    if (specialists.length === 0 && tripsList.length === 0) {
-      await seedInitialData().catch(() => {});
-      const fresh = await loadDataFromSupabase(supabase);
-      if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
-        const result = { ...fresh, archivedIds };
-        saveToCache(result);
-        return result;
-      }
-      saveToCache(SEED_DATA);
-      return SEED_DATA;
+  const vacations: Vacation[] = (vacRes?.data || []).map((v: any) => ({
+    id: v.id,
+    specialistId: v.specialist_id,
+    start: v.start_date,
+    end: v.end_date,
+  }));
+
+  const trainings: Training[] = (trRes?.data || []).map((t: any) => ({
+    id: t.id,
+    specialistId: t.specialist_id,
+    title: t.title || "",
+    start: t.start_date,
+    end: t.end_date,
+  }));
+
+  // Архив из localStorage (metadata, не критично)
+  let archivedIds: string[] = [];
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached) as AppData;
+      archivedIds = parsed.archivedIds || [];
     }
+  } catch {}
 
-    const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations, trainings, archivedIds };
-    saveToCache(result);
-    return result;
+  // Если база пуста — сидируем
+  if (specialists.length === 0 && tripsList.length === 0) {
+    await seedInitialData().catch(() => {});
+    const fresh = await loadDataFromSupabase(supabase);
+    if (fresh && (fresh.specialists.length > 0 || fresh.trips.length > 0)) {
+      const result = { ...fresh, archivedIds };
+      saveToCache(result);
+      return result;
+    }
+    saveToCache(SEED_DATA);
+    return SEED_DATA;
+  }
+
+  const result: AppData = { specialists, trips: tripsList, servicePeriods, vacations, trainings, archivedIds };
+  saveToCache(result);
+  return result;
+}
+
+// === Публичная функция с таймаутом ===
+export async function loadData(): Promise<AppData> {
+  try {
+    return await Promise.race([
+      doLoadData(),
+      new Promise<AppData>((_, reject) =>
+        setTimeout(() => reject(new Error(`Supabase timeout: не удалось загрузить данные за ${LOAD_TIMEOUT_MS}мс`)), LOAD_TIMEOUT_MS)
+      ),
+    ]);
   } catch (e) {
-    console.error("Ошибка загрузки данных:", e);
+    console.error("Ошибка загрузки данных (используем кеш/seed):", e);
     return loadFromCacheOrSeed();
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { Header } from "@/components/Header";
 import { FilterChips } from "@/components/FilterChips";
 import { Timeline } from "@/components/Timeline";
@@ -18,8 +18,114 @@ import {
 import { SEED_DATA } from "@/lib/data";
 import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training, ExistingObject, TimelineObject } from "@/lib/types";
 
+// === ErrorBoundary для защиты от белого экрана ===
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 40,
+          fontFamily: "'Inter', -apple-system, sans-serif",
+          background: "#f0eeeb",
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e", marginBottom: 8 }}>
+            Что-то пошло не так
+          </h2>
+          <p style={{ fontSize: 14, color: "#5a5a72", marginBottom: 24, textAlign: "center", maxWidth: 500 }}>
+            Произошла ошибка при рендере страницы. Попробуйте перезагрузить.
+          </p>
+          <pre style={{
+            background: "rgba(0,0,0,0.05)",
+            padding: 16,
+            borderRadius: 8,
+            fontSize: 11,
+            color: "#dc2626",
+            maxWidth: "90vw",
+            overflow: "auto",
+            marginBottom: 24,
+          }}>
+            {this.state.error?.message}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: "10px 24px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Перезагрузить страницу
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// === Индикатор фоновой загрузки ===
+function LoadingBar() {
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 2,
+      zIndex: 9999,
+      background: "rgba(37,99,235,0.1)",
+      overflow: "hidden",
+    }}>
+      <div style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: "100%",
+        width: "30%",
+        background: "linear-gradient(90deg, transparent, #2563eb, transparent)",
+        animation: "shimmer 1.2s infinite",
+      }} />
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function Home() {
-  // ИСПРАВЛЕНИЕ: Начинаем с seed-данными для мгновенного рендера
+  // Начинаем с seed-данными для мгновенного рендера
   const [data, setData] = useState<AppData>(SEED_DATA);
   const [loaded, setLoaded] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
@@ -313,118 +419,120 @@ export default function Home() {
     alert("Данные сброшены.");
   };
 
-  // ИСПРАВЛЕНИЕ: Убрали loading state — рендерим сразу с seed-данными
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
-      <Header
-        onAddTrip={() => {
-          setEditingTrip(null);
-          setShowAddModal(true);
-        }}
-        onExport={handleExport}
-        onImport={handleImport}
-        onReset={handleReset}
-        onArchiveClick={() => setShowArchiveModal(true)}
-        showArchived={showArchived}
-        onToggleArchived={() => setShowArchived(!showArchived)}
-        tripCount={data.trips.length}
-        specialistCount={data.specialists.length}
-        archivedCount={archivedCount}
-      />
-
-      {!showArchived && (
-        <FilterChips
-          specialists={data.specialists}
-          selected={selectedSpecialist}
-          onSelect={setSelectedSpecialist}
-          tripCountBySpecialist={tripCountBySpecialist}
-        />
-      )}
-
-      <Timeline
-        specialists={visibleSpecialists}
-        trips={filteredTrips}
-        servicePeriods={data.servicePeriods || []}
-        vacations={filteredVacations}
-        trainings={filteredTrainings}
-        archivedIds={archivedIds}
-        showArchived={showArchived}
-        onSelectTrip={setViewingTrip}
-        onAddVacation={() => {
-          setEditingVacation(null);
-          setShowVacationModal(true);
-        }}
-        onDeleteVacation={handleDeleteVacation}
-        onEditVacation={handleEditVacation}
-        onAddTraining={() => {
-          setEditingTraining(null);
-          setShowTrainingModal(true);
-        }}
-        onDeleteTraining={handleDeleteTraining}
-        onEditTraining={handleEditTraining}
-      />
-
-      {showAddModal && (
-        <AddTripModal
-          specialists={data.specialists}
-          existingObjects={existingObjects}
-          initialTrip={editingTrip}
-          initialServicePeriods={editingServicePeriods}
-          onSave={handleSaveTrip}
-          onClose={() => {
-            setShowAddModal(false);
+    <ErrorBoundary>
+      {!loaded && <LoadingBar />}
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
+        <Header
+          onAddTrip={() => {
             setEditingTrip(null);
-          }}
-        />
-      )}
-
-      {showVacationModal && (
-        <AddVacationModal
-          specialists={data.specialists}
-          initialVacation={editingVacation}
-          onSave={handleSaveVacation}
-          onClose={() => {
-            setShowVacationModal(false);
-            setEditingVacation(null);
-          }}
-        />
-      )}
-
-      {showTrainingModal && (
-        <AddTrainingModal
-          specialists={data.specialists}
-          initialTraining={editingTraining}
-          onSave={handleSaveTraining}
-          onClose={() => {
-            setShowTrainingModal(false);
-            setEditingTraining(null);
-          }}
-        />
-      )}
-
-      {showArchiveModal && (
-        <ArchiveModal
-          objects={allObjects}
-          archivedIds={archivedIds}
-          onArchive={handleArchive}
-          onUnarchive={handleUnarchive}
-          onClose={() => setShowArchiveModal(false)}
-        />
-      )}
-
-      {viewingTrip && (
-        <TripDetailsModal
-          trip={viewingTrip}
-          specialists={data.specialists}
-          servicePeriods={data.servicePeriods}
-          onClose={() => setViewingTrip(null)}
-          onEdit={() => {
-            setEditingTrip(viewingTrip);
             setShowAddModal(true);
           }}
-          onDelete={() => handleDeleteTrip(viewingTrip.id)}
+          onExport={handleExport}
+          onImport={handleImport}
+          onReset={handleReset}
+          onArchiveClick={() => setShowArchiveModal(true)}
+          showArchived={showArchived}
+          onToggleArchived={() => setShowArchived(!showArchived)}
+          tripCount={data.trips.length}
+          specialistCount={data.specialists.length}
+          archivedCount={archivedCount}
         />
-      )}
-    </div>
+
+        {!showArchived && (
+          <FilterChips
+            specialists={data.specialists}
+            selected={selectedSpecialist}
+            onSelect={setSelectedSpecialist}
+            tripCountBySpecialist={tripCountBySpecialist}
+          />
+        )}
+
+        <Timeline
+          specialists={visibleSpecialists}
+          trips={filteredTrips}
+          servicePeriods={data.servicePeriods || []}
+          vacations={filteredVacations}
+          trainings={filteredTrainings}
+          archivedIds={archivedIds}
+          showArchived={showArchived}
+          onSelectTrip={setViewingTrip}
+          onAddVacation={() => {
+            setEditingVacation(null);
+            setShowVacationModal(true);
+          }}
+          onDeleteVacation={handleDeleteVacation}
+          onEditVacation={handleEditVacation}
+          onAddTraining={() => {
+            setEditingTraining(null);
+            setShowTrainingModal(true);
+          }}
+          onDeleteTraining={handleDeleteTraining}
+          onEditTraining={handleEditTraining}
+        />
+
+        {showAddModal && (
+          <AddTripModal
+            specialists={data.specialists}
+            existingObjects={existingObjects}
+            initialTrip={editingTrip}
+            initialServicePeriods={editingServicePeriods}
+            onSave={handleSaveTrip}
+            onClose={() => {
+              setShowAddModal(false);
+              setEditingTrip(null);
+            }}
+          />
+        )}
+
+        {showVacationModal && (
+          <AddVacationModal
+            specialists={data.specialists}
+            initialVacation={editingVacation}
+            onSave={handleSaveVacation}
+            onClose={() => {
+              setShowVacationModal(false);
+              setEditingVacation(null);
+            }}
+          />
+        )}
+
+        {showTrainingModal && (
+          <AddTrainingModal
+            specialists={data.specialists}
+            initialTraining={editingTraining}
+            onSave={handleSaveTraining}
+            onClose={() => {
+              setShowTrainingModal(false);
+              setEditingTraining(null);
+            }}
+          />
+        )}
+
+        {showArchiveModal && (
+          <ArchiveModal
+            objects={allObjects}
+            archivedIds={archivedIds}
+            onArchive={handleArchive}
+            onUnarchive={handleUnarchive}
+            onClose={() => setShowArchiveModal(false)}
+          />
+        )}
+
+        {viewingTrip && (
+          <TripDetailsModal
+            trip={viewingTrip}
+            specialists={data.specialists}
+            servicePeriods={data.servicePeriods}
+            onClose={() => setViewingTrip(null)}
+            onEdit={() => {
+              setEditingTrip(viewingTrip);
+              setShowAddModal(true);
+            }}
+            onDelete={() => handleDeleteTrip(viewingTrip.id)}
+          />
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
