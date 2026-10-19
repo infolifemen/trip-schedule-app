@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { memo, useMemo, useEffect, useRef, useCallback, useState } from "react";
 import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, Training } from "@/lib/types";
@@ -169,7 +169,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0); const effectiveEnd = monthEnd > range.end ? range.end : monthEnd;
       const left = diffDays(range.start, monthStart) * PX_PER_DAY; const width = (diffDays(monthStart, effectiveEnd) + 1) * PX_PER_DAY;
       const year = current.getFullYear(); const monthNames = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-      // ВСЕГДА показываем год после месяца (по просьбе пользователя)
       const label = `${monthNames[current.getMonth()]} ${year}`;
       result.push({ label, left, width }); current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
     }
@@ -224,34 +223,21 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       const tripBars = sortedTrips.map(trip => { const tStart = parseDate(trip.start); const tEnd = parseDate(trip.end); const left = diffDays(range.start, tStart) * PX_PER_DAY; const width = (diffDays(tStart, tEnd) + 1) * PX_PER_DAY; const names = trip.specialistIds.map(id => specialists.find(s => s.id === id)?.name || id); return { trip, left, width, names }; });
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "relative", background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1 }}>
+          {/* === СЛОЙ 1 (z-2): ТОЛЬКО стеклянная полоса периода услуг === */}
+          {/* ВАЖНО: z-2 < z-4 (плашки командировок), поэтому плашки будут сверху стекла */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start); const pEnd = parseDate(period.end);
-            // Начало оказания услуг: в НАЧАЛЕ указанного дня (левая граница дня)
             const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
-            // Конец оказания услуг: в КОНЦЕ указанного дня (правая граница дня)
-            const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY;
             const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
             if (startLeft + width < 0 || startLeft > totalWidth) return null;
             return (
-              // zIndex: 2 — Стеклянная полоса ПОД плашками командировок (zIndex: 4). Маркеры вынесены отдельным слоем z-10.
-              <div key={`sp-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 6 }}>
-                {/* Прозрачная стеклянная полоса периода услуг */}
+              <div key={`sp-glass-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 2 }}>
                 <div style={{ position: "absolute", top: 6, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }} />
-                {/* Маркер НАЧАЛА услуг — кружок со стрелкой вниз + цифра даты */}
-                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
-                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_START_COLOR}`, marginTop: -1 }} />
-                  <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_START_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pStart.getDate()}</div>
-                </div>
-                {/* Маркер КОНЦА услуг — кружок со стрелкой вниз + цифра даты */}
-                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 10 }}>
-                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_END_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
-                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_END_COLOR}`, marginTop: -1 }} />
-                  <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_END_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pEnd.getDate()}</div>
-                </div>
               </div>
             );
           })}
+
+          {/* === СЛОЙ 2 (z-4): Плашки командировок === */}
           {tripBars.map((tb, ti) => {
             const displayName = tb.names.length <= 3 ? tb.names.join(", ") : `${tb.names.slice(0, 2).join(", ")} +${tb.names.length - 2}`;
             return (
@@ -261,26 +247,26 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             );
           })}
 
-          {/* === СЛОЙ 3: Маркеры начала/конца услуг (z-10) — ВЫШЕ всех элементов, включая today line (z-8) === */}
+          {/* === СЛОЙ 3 (z-10): ТОЛЬКО маркеры начала/конца услуг === */}
+          {/* ВАЖНО: z-10 > z-8 (today line), поэтому маркеры будут поверх синей линии */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start);
             const pEnd = parseDate(period.end);
             const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
             const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY;
-            const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
-            if (startLeft + width < 0 || startLeft > totalWidth) return null;
+            if (startLeft > totalWidth && endLeft > totalWidth) return null;
             return (
-              <div key={`sp-mark- + '' + `} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 10 }}>
+              <div key={`sp-mark-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 10 }}>
                 {/* Маркер НАЧАЛА услуг */}
                 <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
-                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid  + '' + `, marginTop: -1 }} />
+                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_START_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_START_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pStart.getDate()}</div>
                 </div>
                 {/* Маркер КОНЦА услуг */}
                 <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center" }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_END_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
-                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid  + '' + `, marginTop: -1 }} />
+                  <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_END_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_END_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pEnd.getDate()}</div>
                 </div>
               </div>
@@ -330,7 +316,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div ref={scrollContainerRef} style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "auto" }}>
         <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* zIndex: 15 — НИЖЕ, чем Header (zIndex: 50). Dropdown из Header гарантированно ПОВЕРХ строки дат. */}
           <div style={{ position: "sticky", top: 0, zIndex: 15, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
@@ -349,7 +334,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
           </div>
         </div>
       </div>
-      {/* Легенда — стеклянный стиль периода услуг (без пунктира) */}
       <div style={{ position: "absolute", bottom: 12, right: 16, display: "flex", gap: 14, padding: "6px 14px", background: CARD_BG, backdropFilter: "blur(16px)", borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 9, color: TEXT_DIM, fontFamily: "'Inter', sans-serif", zIndex: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: TRIP_BAR_COLOR }} /><span>Командировка</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_START_COLOR, border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_END_COLOR, border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
