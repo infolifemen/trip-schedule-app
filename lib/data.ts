@@ -1,4 +1,4 @@
-import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training } from "./types";
+﻿import type { AppData, Specialist, Trip, ServicePeriod, Vacation, Training } from "./types";
 
 const COLORS = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#06b6d4", "#ef4444", "#84cc16", "#a855f7", "#f97316"];
 
@@ -61,7 +61,8 @@ export function startOfMonth(date: Date): Date { return new Date(date.getFullYea
 export function endOfMonth(date: Date): Date { return new Date(date.getFullYear(), date.getMonth() + 1, 0); }
 export function daysInMonth(date: Date): number { return endOfMonth(date).getDate(); }
 export function monthName(date: Date): string { const names = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]; return `${names[date.getMonth()]} ${date.getFullYear()}`; }
-export function monthNameShort(date: Date): string { const names = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"]; const year = date.getFullYear(); if (year === 2026) return names[date.getMonth()]; return `${names[date.getMonth()]} ${year}`; }
+export function monthNameShort(date: Date): string { const names = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"]; return `${names[date.getMonth()]} ${date.getFullYear()}`; }
 export function today(): Date { const now = new Date(); return new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
 export function toISODate(date: Date): string { const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, "0"); const d = String(date.getDate()).padStart(2, "0"); return `${y}-${m}-${d}`; }
 export function getSpecialistColor(specialists: Specialist[], id: string): string { return specialists.find((s) => s.id === id)?.color || "#6b7280"; }
+

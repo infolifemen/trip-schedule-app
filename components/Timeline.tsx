@@ -92,16 +92,11 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   }, [visibleObjects, trainings]);
 
   const range = useMemo(() => {
-    if (trips.length === 0 && vacations.length === 0 && trainings.length === 0) { const start = addDays(today_date, -30); return { start, end: addDays(today_date, 90), totalDays: 121 }; }
-    const allDates: Date[] = [];
-    for (const t of trips) { allDates.push(parseDate(t.start)); allDates.push(parseDate(t.end)); }
-    for (const v of vacations) { allDates.push(parseDate(v.start)); allDates.push(parseDate(v.end)); }
-    for (const tr of trainings) { allDates.push(parseDate(tr.start)); allDates.push(parseDate(tr.end)); }
-    const minDate = allDates.reduce((min, d) => d < min ? d : min, allDates[0]);
-    const maxDate = allDates.reduce((max, d) => d > max ? d : max, allDates[0]);
-    const start = addDays(startOfMonth(minDate), -14); const end = addDays(startOfMonth(addDays(maxDate, 31)), 15); const totalDays = diffDays(start, end) + 1;
+    const start = new Date(2026, 0, 1);
+    const end = new Date(2028, 0, 31);
+    const totalDays = diffDays(start, end) + 1;
     return { start, end, totalDays };
-  }, [trips, vacations, trainings, today_date]);
+  }, []);
 
   const months = useMemo(() => {
     const result: { label: string; left: number; width: number }[] = []; let current = range.start;
@@ -172,11 +167,11 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "relative", background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1 }}>
           {objPeriods.map((period, pi) => {
-            const pStart = parseDate(period.start); const pEnd = parseDate(period.end); const startLeft = diffDays(range.start, pStart) * PX_PER_DAY; const endLeft = diffDays(range.start, pEnd) * PX_PER_DAY; const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
+            const pStart = parseDate(period.start); const pEnd = parseDate(period.end); const startLeft = diffDays(range.start, pStart) * PX_PER_DAY; const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY; const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
             if (startLeft + width < 0 || startLeft > totalWidth) return null;
             return (
               <div key={`sp-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 3 }}>
-                <div style={{ position: "absolute", top: ROW_HEIGHT / 2 - 1, left: Math.max(startLeft + 6, 0), width: Math.max(width - 12, 2), height: 2, background: `repeating-linear-gradient(to right, rgba(37,99,235,0.4) 0, rgba(37,99,235,0.4) 4px, transparent 4px, transparent 8px)` }} />
+                <div style={{ position: "absolute", top: 6, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }} />
                 <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 5 }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
                   <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_START_COLOR}`, marginTop: -1 }} />
