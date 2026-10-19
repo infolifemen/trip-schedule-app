@@ -37,7 +37,8 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
   const btnStyle: React.CSSProperties = { padding: 8, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 8, color: "#5a5a72", cursor: "pointer", transition: "all 0.15s ease", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
   return (
-    <header style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    // zIndex: 50 — ВЫШЕ sticky header в Timeline (zIndex: 15). Dropdown гарантированно ПОВЕРХ строки дат.
+    <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e", margin: 0, letterSpacing: "-0.3px" }}>📊 График командировок</h1>
@@ -49,7 +50,8 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
               <Filter size={14} />Фильтр{selectedSpecialist && <span style={{ background: "#2563eb", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 8, minWidth: 14, textAlign: "center" }}>1</span>}<ChevronDown size={12} />
             </button>
             {filterMenuOpen && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: 8, minWidth: 220, maxHeight: 300, overflowY: "auto", zIndex: 100 }}>
+              // zIndex: 9999 — ГАРАНТИРОВАННО поверх всех sticky-элементов
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: 8, minWidth: 220, maxHeight: 300, overflowY: "auto", zIndex: 9999 }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: "#8e8ea0", textTransform: "uppercase", letterSpacing: "0.5px", padding: "4px 8px", marginBottom: 4 }}>Специалист</div>
                 <button onClick={() => { onSelectSpecialist(null); setFilterMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 10px", borderRadius: 8, border: "none", background: selectedSpecialist === null ? "rgba(37,99,235,0.1)" : "transparent", color: selectedSpecialist === null ? "#2563eb" : "#5a5a72", fontSize: 12, fontWeight: 600, cursor: "pointer", textAlign: "left", transition: "all 0.1s" }} onMouseEnter={(e) => { if (selectedSpecialist !== null) (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; }} onMouseLeave={(e) => { if (selectedSpecialist !== null) (e.currentTarget).style.background = "transparent"; }}>
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: selectedSpecialist === null ? "#2563eb" : "#ccc" }} />Все<span style={{ marginLeft: "auto", fontSize: 10, opacity: 0.6 }}>{tripCount}</span>
@@ -68,7 +70,8 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
               {showArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}Архив{archivedCount > 0 && !showArchived && <span style={{ background: "rgba(245,158,11,0.2)", color: "#d97706", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, minWidth: 16, textAlign: "center" }}>{archivedCount}</span>}<ChevronDown size={12} />
             </button>
             {archiveMenuOpen && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: 6, minWidth: 200, zIndex: 100 }}>
+              // zIndex: 9999 — ГАРАНТИРОВАННО поверх всех sticky-элементов
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: 6, minWidth: 200, zIndex: 9999 }}>
                 <button onClick={() => { onToggleArchived(); setArchiveMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#5a5a72", fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", transition: "all 0.1s" }} onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}>
                   {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}<div><div style={{ fontWeight: 600 }}>{showArchived ? "Показать активные" : "Показать архив"}</div><div style={{ fontSize: 10, color: "#8e8ea0", marginTop: 2 }}>{showArchived ? "Вернуться к активным объектам" : `Просмотреть ${archivedCount} архивных`}</div></div>
                 </button>

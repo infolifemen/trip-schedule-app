@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, Training } from "@/lib/types";
-import { parseDate, diffDays, addDays, startOfMonth, monthNameShort, today } from "@/lib/data";
+import { parseDate, diffDays, addDays, startOfMonth, today } from "@/lib/data";
 
 interface TimelineProps {
   specialists: Specialist[]; trips: Trip[]; servicePeriods?: ServicePeriod[]; vacations?: Vacation[]; trainings?: Training[];
@@ -105,7 +105,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0); const effectiveEnd = monthEnd > range.end ? range.end : monthEnd;
       const left = diffDays(range.start, monthStart) * PX_PER_DAY; const width = (diffDays(monthStart, effectiveEnd) + 1) * PX_PER_DAY;
       const year = current.getFullYear(); const monthNames = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-      const label = year === 2026 ? monthNames[current.getMonth()] : `${monthNames[current.getMonth()]} ${year}`;
+      // ВСЕГДА показываем год после месяца (по просьбе пользователя)
+      const label = `${monthNames[current.getMonth()]} ${year}`;
       result.push({ label, left, width }); current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
     }
     return result;
@@ -122,8 +123,11 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   const handleTripClick = useCallback((trip: Trip) => { if (onSelectTrip) onSelectTrip(trip); }, [onSelectTrip]);
   const vacationBars = useMemo(() => mergeVacationBars(vacations, range.start, specialists), [vacations, range.start, specialists]);
 
+  // Единый источник геометрии: PX_PER_DAY используется и для ячеек шапки, и для gridStyle.
+  // Это гарантирует совпадение вертикальных линий с делениями дней на ЛЮБОМ масштабе (zoom) браузера.
   const gridStyle = useMemo(() => {
     const startDow = range.start.getDay(); const satOffset = ((6 - startDow) + 7) % 7; const sunOffset = (7 - startDow) % 7; const weekPx = 7 * PX_PER_DAY;
+    // Линия рисуется на ПРАВОМ крае ячейки (в точности там же, где borderRight ячейки дня в шапке)
     return {
       backgroundImage: `repeating-linear-gradient(to right, transparent 0, transparent ${PX_PER_DAY - 1}px, rgba(0,0,0,0.08) ${PX_PER_DAY - 1}px, rgba(0,0,0,0.08) ${PX_PER_DAY}px), repeating-linear-gradient(to right, rgba(220,38,38,0.06) 0, rgba(220,38,38,0.06) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px), repeating-linear-gradient(to right, rgba(220,38,38,0.06) 0, rgba(220,38,38,0.06) ${PX_PER_DAY}px, transparent ${PX_PER_DAY}px, transparent ${weekPx}px)`,
       backgroundRepeat: "repeat, repeat, repeat", backgroundSize: `${PX_PER_DAY}px 100%, ${weekPx}px 100%, ${weekPx}px 100%`, backgroundPosition: `0 0, ${satOffset * PX_PER_DAY}px 0, ${sunOffset * PX_PER_DAY}px 0`,
@@ -167,17 +171,26 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "relative", background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1 }}>
           {objPeriods.map((period, pi) => {
-            const pStart = parseDate(period.start); const pEnd = parseDate(period.end); const startLeft = diffDays(range.start, pStart) * PX_PER_DAY; const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY; const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
+            const pStart = parseDate(period.start); const pEnd = parseDate(period.end);
+            // Начало оказания услуг: в НАЧАЛЕ указанного дня (левая граница дня)
+            const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
+            // Конец оказания услуг: в КОНЦЕ указанного дня (правая граница дня)
+            const endLeft = (diffDays(range.start, pEnd) + 1) * PX_PER_DAY;
+            const width = (diffDays(pStart, pEnd) + 1) * PX_PER_DAY;
             if (startLeft + width < 0 || startLeft > totalWidth) return null;
             return (
-              <div key={`sp-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 3 }}>
+              // zIndex: 6 — ВЫШЕ плашек командировок (zIndex: 4). Так маркеры услуг НЕ уходят под плашки.
+              <div key={`sp-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 6 }}>
+                {/* Прозрачная стеклянная полоса периода услуг */}
                 <div style={{ position: "absolute", top: 6, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }} />
-                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 5 }}>
+                {/* Маркер НАЧАЛА услуг — кружок со стрелкой вниз + цифра даты */}
+                <div style={{ position: "absolute", top: 2, left: Math.max(startLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 7 }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_START_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
                   <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_START_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_START_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pStart.getDate()}</div>
                 </div>
-                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 5 }}>
+                {/* Маркер КОНЦА услуг — кружок со стрелкой вниз + цифра даты */}
+                <div style={{ position: "absolute", top: 2, left: Math.max(endLeft - 5, 0), display: "flex", flexDirection: "column", alignItems: "center", zIndex: 7 }}>
                   <div style={{ width: 12, height: 12, borderRadius: "50%", background: MARKER_END_COLOR, border: "2px solid #fff", boxShadow: "0 1px 4px rgba(0,0,0,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, fontWeight: 800, color: "#fff", fontFamily: "'JetBrains Mono', monospace" }}>{pi + 1}</div>
                   <div style={{ width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: `6px solid ${MARKER_END_COLOR}`, marginTop: -1 }} />
                   <div style={{ fontSize: 8, fontWeight: 700, color: MARKER_END_COLOR, fontFamily: "'JetBrains Mono', monospace", marginTop: 1, textShadow: "0 0 2px #fff" }}>{pEnd.getDate()}</div>
@@ -237,7 +250,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div ref={scrollContainerRef} style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "auto" }}>
         <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          <div style={{ position: "sticky", top: 0, zIndex: 25, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
+          {/* zIndex: 15 — НИЖЕ, чем Header (zIndex: 50). Dropdown из Header гарантированно ПОВЕРХ строки дат. */}
+          <div style={{ position: "sticky", top: 0, zIndex: 15, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <div style={{ height: 28, position: "relative" }}>{months.map((m, i) => <div key={i} style={{ position: "absolute", top: 0, left: m.left, width: m.width, height: 28, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 600, color: TEXT_DIM, borderRight: `1px solid ${BORDER}` }}>{m.label}</div>)}</div>
@@ -253,9 +267,10 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
           </div>
         </div>
       </div>
+      {/* Легенда — стеклянный стиль периода услуг (без пунктира) */}
       <div style={{ position: "absolute", bottom: 12, right: 16, display: "flex", gap: 14, padding: "6px 14px", background: CARD_BG, backdropFilter: "blur(16px)", borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 9, color: TEXT_DIM, fontFamily: "'Inter', sans-serif", zIndex: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: TRIP_BAR_COLOR }} /><span>Командировка</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_START_COLOR, border: "1px solid #fff" }} /><div style={{ width: 12, height: 2, background: "rgba(37,99,235,0.4)", backgroundImage: "repeating-linear-gradient(to right, rgba(37,99,235,0.6) 0, rgba(37,99,235,0.6) 2px, transparent 2px, transparent 4px)" }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_END_COLOR, border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_START_COLOR, border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_END_COLOR, border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: VACATION_GLASS, border: "1px solid rgba(245,158,11,0.3)" }} /><span>Отпуск</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: TRAINING_BAR_COLOR }} /><span>Обучение</span></div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
