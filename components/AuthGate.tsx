@@ -1,30 +1,46 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase-browser'
 
 /**
- * Клиентская проверка авторизации.
- * Нужна на GitHub Pages, где нет серверного middleware.
- * На Vercel middleware делает то же самое на сервере, AuthGate здесь безвреден.
+ * Клиентская проверка авторизации через Supabase Auth.
+ * Работает и на Vercel (SSR), и на GitHub Pages (статика).
+ * Проверяет наличие активной сессии Supabase (JWT).
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const router = useRouter()
+  const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const cookies = document.cookie
-      .split(';')
-      .map((c) => c.trim())
-      .filter(Boolean);
-    const isAuth = cookies.includes('trip_schedule_auth=true');
+    const supabase = createClient()
 
-    if (!isAuth) {
-      router.replace('/login');
-    } else {
-      setAuthorized(true);
+    // Получаем текущую сессию
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setAuthorized(true)
+      } else {
+        router.replace('/login')
+      }
+    })
+
+    // Подписываемся на изменения аутентификации
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setAuthorized(false)
+        router.replace('/login')
+      } else {
+        setAuthorized(true)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
     }
-  }, [router]);
+  }, [router])
 
   if (authorized === null) {
     return (
@@ -42,8 +58,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       >
         Проверка авторизации…
       </div>
-    );
+    )
   }
 
-  return <>{children}</>;
+  return <>{children}</>
 }

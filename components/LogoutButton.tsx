@@ -1,45 +1,45 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { LogOut } from 'lucide-react'
+import { createClient } from '@/lib/supabase-browser'
 
 export default function LogoutButton() {
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogout = () => {
-    localStorage.removeItem('trip_schedule_auth')
+  const handleLogout = async () => {
+    setLoading(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    // AuthGate автоматически заметит потерю сессии и редиректнет на /login
     router.push('/login')
   }
 
   return (
     <button
       onClick={handleLogout}
+      disabled={loading}
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "6px 12px",
-        background: "rgba(0,0,0,0.04)",
-        border: "1px solid rgba(0,0,0,0.06)",
-        borderRadius: 8,
-        fontSize: 12,
-        fontWeight: 500,
-        color: "#5a5a72",
-        cursor: "pointer",
-        transition: "all 0.15s ease",
-        fontFamily: "'Inter', -apple-system, sans-serif",
+        padding: '8px 16px',
+        fontSize: '14px',
+        background: 'transparent',
+        color: '#6b7280',
+        border: '1px solid #d1d5db',
+        borderRadius: '6px',
+        cursor: loading ? 'not-allowed' : 'pointer',
+        transition: 'all 0.2s',
       }}
-      onMouseEnter={(e) => {
-        (e.target as HTMLElement).style.background = "rgba(220,38,38,0.08)";
-        (e.target as HTMLElement).style.color = "#dc2626";
+      onMouseOver={(e) => {
+        e.currentTarget.style.background = '#f3f4f6'
+        e.currentTarget.style.color = '#1f2937'
       }}
-      onMouseLeave={(e) => {
-        (e.target as HTMLElement).style.background = "rgba(0,0,0,0.04)";
-        (e.target as HTMLElement).style.color = "#5a5a72";
+      onMouseOut={(e) => {
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.color = '#6b7280'
       }}
     >
-      <LogOut size={14} />
-      Выйти
+      {loading ? 'Выход...' : 'Выйти'}
     </button>
   )
 }

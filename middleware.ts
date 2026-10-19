@@ -1,7 +1,14 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-export function middleware(request: NextRequest) {
+/**
+ * Middleware для Vercel SSR.
+ * Проверяет Supabase JWT-сессию и редиректит неавторизованных на /login.
+ *
+ * На GitHub Pages этот файл удаляется перед сборкой (статический экспорт).
+ * Там авторизация проверяется клиентски через components/AuthGate.tsx.
+ */
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Пропускаем статические файлы и API
@@ -9,27 +16,51 @@ export function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
     pathname.startsWith('/favicon') ||
-    pathname.includes('.') // статические файлы (css, js, images)
+    pathname.includes('.')
   ) {
     return NextResponse.next()
   }
 
-  // Проверяем cookie авторизации
-  const isAuth = request.cookies.get('trip_schedule_auth')?.value === 'true'
+  let supabaseResponse = NextResponse.next({ request })
 
-  // Если не авторизован и не на странице логина — редирект
-  if (!isAuth && pathname !== '/login') {
-    const loginUrl = new URL('/login', request.url)
-    return NextResponse.redirect(loginUrl)
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+
+  // ВАЖНО: вызываем getUser() для обновления JWT-куки.
+  // Не используем getSession() в middleware — он небезопасен на edge.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // Если не авторизован и не на /login — редирект
+  if (!user && pathname !== '/login') {
+    const url = new URL('/login', request.url)
+    return NextResponse.redirect(url)
   }
 
-  // Если авторизован и на странице логина — редирект на главную
-  if (isAuth && pathname === '/login') {
-    const homeUrl = new URL('/', request.url)
-    return NextResponse.redirect(homeUrl)
+  // Если авторизован и на /login — редирект на главную
+  if (user && pathname === '/login') {
+    const url = new URL('/', request.url)
+    return NextResponse.redirect(url)
   }
 
-  return NextResponse.next()
+  return supabaseResponse
 }
 
 export const config = {
