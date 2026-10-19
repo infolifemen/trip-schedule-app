@@ -16,7 +16,12 @@ export default function LogoutButton() {
     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
       {isAdmin() && (
         <a
-          href="/admin"
+          href="/#/admin"
+          onClick={(e) => {
+            e.preventDefault();
+            window.location.hash = '#/admin';
+            window.location.reload();
+          }}
           style={{
             padding: '8px 16px',
             fontSize: '13px',
