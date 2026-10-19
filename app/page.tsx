@@ -12,7 +12,7 @@ import { AuthGate } from "@/components/AuthGate";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
-  saveTraining, deleteTraining,
+  saveTraining, deleteTraining, loadFromCacheSync,
   saveArchivedIds, saveTrainings,
 } from "@/lib/storage";
 import { SEED_DATA } from "@/lib/data";
@@ -60,7 +60,9 @@ function LoadingBar() {
 }
 
 export default function Home() {
-  const [data, setData] = useState<AppData>(SEED_DATA);
+  // Lazy-инициализатор: читаем localStorage СИНХРОННО при первом render.
+  // Это устраняет "мигание" (командировки появляются из seed, потом исчезают после useEffect).
+  const [data, setData] = useState<AppData>(() => loadFromCacheSync() || SEED_DATA);
   const [loaded, setLoaded] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -74,7 +76,16 @@ export default function Home() {
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
-    loadData().then((result) => { setData(result); setLoaded(true); }).catch((err) => { console.error("Ошибка загрузки:", err); setLoaded(true); });
+    loadData().then((result) => {
+      // Не перезаписываем, если Supabase вернул пусто (чтобы не терять локальные данные)
+      if (result.trips.length === 0 && data.trips.length > 0) {
+        console.warn("[page] Supabase returned empty, keeping local data");
+        setLoaded(true);
+        return;
+      }
+      setData(result);
+      setLoaded(true);
+    }).catch((err) => { console.error("Ошибка загрузки:", err); setLoaded(true); });
   }, []);
 
   const filteredTrips = useMemo(() => {
