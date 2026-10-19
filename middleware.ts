@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+
+const COOKIE_NAME = 'trip_schedule_auth'
 
 /**
  * Middleware для Vercel SSR.
- * Проверяет Supabase JWT-сессию и редиректит неавторизованных на /login.
+ * Проверяет cookie trip_schedule_auth и редиректит неавторизованных на /login.
  *
  * На GitHub Pages этот файл удаляется перед сборкой (статический экспорт).
  * Там авторизация проверяется клиентски через components/AuthGate.tsx.
@@ -21,46 +22,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  let supabaseResponse = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  // ВАЖНО: вызываем getUser() для обновления JWT-куки.
-  // Не используем getSession() в middleware — он небезопасен на edge.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // Проверяем cookie
+  const authCookie = request.cookies.get(COOKIE_NAME)?.value
+  const isAuthenticated = authCookie === 'authenticated'
 
   // Если не авторизован и не на /login — редирект
-  if (!user && pathname !== '/login') {
+  if (!isAuthenticated && pathname !== '/login') {
     const url = new URL('/login', request.url)
     return NextResponse.redirect(url)
   }
 
   // Если авторизован и на /login — редирект на главную
-  if (user && pathname === '/login') {
+  if (isAuthenticated && pathname === '/login') {
     const url = new URL('/', request.url)
     return NextResponse.redirect(url)
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {

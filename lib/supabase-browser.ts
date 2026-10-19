@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 // Используем createClient НАПРЯМУЮ из @supabase/supabase-js
 // вместо @supabase/ssr, потому что:
@@ -10,21 +10,21 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-let cachedClient: ReturnType<typeof createClient> | null = null
+let cachedClient: ReturnType<typeof createSupabaseClient> | null = null
 
-export function createSupabaseClient() {
+export function createClient() {
   if (cachedClient) return cachedClient
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase env vars не настроены — будет использован fallback на SEED_DATA')
-    cachedClient = createClient(
+    cachedClient = createSupabaseClient(
       'https://placeholder.supabase.co',
       'placeholder-key'
     )
     return cachedClient
   }
 
-  cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
+  cachedClient = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       // Полностью отключаем Auth — нам не нужна авторизация через Supabase
       persistSession: false,
@@ -35,3 +35,6 @@ export function createSupabaseClient() {
 
   return cachedClient
 }
+
+// Алиас для обратной совместимости
+export const createSupabaseClient = createClient

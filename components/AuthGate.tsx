@@ -2,43 +2,29 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase-browser'
+
+const COOKIE_NAME = 'trip_schedule_auth'
+
+function getAuthCookie(): string | null {
+  const match = document.cookie.match(new RegExp(`(^| )${COOKIE_NAME}=([^;]+)`))
+  return match ? decodeURIComponent(match[2]) : null
+}
 
 /**
- * Клиентская проверка авторизации через Supabase Auth.
+ * Клиентская проверка авторизации через cookie.
  * Работает и на Vercel (SSR), и на GitHub Pages (статика).
- * Проверяет наличие активной сессии Supabase (JWT).
+ * Проверяет наличие cookie trip_schedule_auth.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [authorized, setAuthorized] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const supabase = createClient()
-
-    // Получаем текущую сессию
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setAuthorized(true)
-      } else {
-        router.replace('/login')
-      }
-    })
-
-    // Подписываемся на изменения аутентификации
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        setAuthorized(false)
-        router.replace('/login')
-      } else {
-        setAuthorized(true)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
+    const token = getAuthCookie()
+    if (token === 'authenticated') {
+      setAuthorized(true)
+    } else {
+      router.replace('/login')
     }
   }, [router])
 
