@@ -9,6 +9,7 @@ import { AddVacationModal } from "@/components/AddVacationModal";
 import { AddTrainingModal } from "@/components/AddTrainingModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
 import { TripDetailsModal } from "@/components/TripDetailsModal";
+import { AuthGate } from "@/components/AuthGate";
 import {
   loadData, saveTrip, deleteTrip, saveSpecialist,
   saveServicePeriods, saveVacation, deleteVacation,
@@ -420,119 +421,121 @@ export default function Home() {
   };
 
   return (
-    <ErrorBoundary>
-      {!loaded && <LoadingBar />}
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
-        <Header
-          onAddTrip={() => {
-            setEditingTrip(null);
-            setShowAddModal(true);
-          }}
-          onExport={handleExport}
-          onImport={handleImport}
-          onReset={handleReset}
-          onArchiveClick={() => setShowArchiveModal(true)}
-          showArchived={showArchived}
-          onToggleArchived={() => setShowArchived(!showArchived)}
-          tripCount={data.trips.length}
-          specialistCount={data.specialists.length}
-          archivedCount={archivedCount}
-        />
-
-        {!showArchived && (
-          <FilterChips
-            specialists={data.specialists}
-            selected={selectedSpecialist}
-            onSelect={setSelectedSpecialist}
-            tripCountBySpecialist={tripCountBySpecialist}
-          />
-        )}
-
-        <Timeline
-          specialists={visibleSpecialists}
-          trips={filteredTrips}
-          servicePeriods={data.servicePeriods || []}
-          vacations={filteredVacations}
-          trainings={filteredTrainings}
-          archivedIds={archivedIds}
-          showArchived={showArchived}
-          onSelectTrip={setViewingTrip}
-          onAddVacation={() => {
-            setEditingVacation(null);
-            setShowVacationModal(true);
-          }}
-          onDeleteVacation={handleDeleteVacation}
-          onEditVacation={handleEditVacation}
-          onAddTraining={() => {
-            setEditingTraining(null);
-            setShowTrainingModal(true);
-          }}
-          onDeleteTraining={handleDeleteTraining}
-          onEditTraining={handleEditTraining}
-        />
-
-        {showAddModal && (
-          <AddTripModal
-            specialists={data.specialists}
-            existingObjects={existingObjects}
-            initialTrip={editingTrip}
-            initialServicePeriods={editingServicePeriods}
-            onSave={handleSaveTrip}
-            onClose={() => {
-              setShowAddModal(false);
+    <AuthGate>
+      <ErrorBoundary>
+        {!loaded && <LoadingBar />}
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f0eeeb" }}>
+          <Header
+            onAddTrip={() => {
               setEditingTrip(null);
-            }}
-          />
-        )}
-
-        {showVacationModal && (
-          <AddVacationModal
-            specialists={data.specialists}
-            initialVacation={editingVacation}
-            onSave={handleSaveVacation}
-            onClose={() => {
-              setShowVacationModal(false);
-              setEditingVacation(null);
-            }}
-          />
-        )}
-
-        {showTrainingModal && (
-          <AddTrainingModal
-            specialists={data.specialists}
-            initialTraining={editingTraining}
-            onSave={handleSaveTraining}
-            onClose={() => {
-              setShowTrainingModal(false);
-              setEditingTraining(null);
-            }}
-          />
-        )}
-
-        {showArchiveModal && (
-          <ArchiveModal
-            objects={allObjects}
-            archivedIds={archivedIds}
-            onArchive={handleArchive}
-            onUnarchive={handleUnarchive}
-            onClose={() => setShowArchiveModal(false)}
-          />
-        )}
-
-        {viewingTrip && (
-          <TripDetailsModal
-            trip={viewingTrip}
-            specialists={data.specialists}
-            servicePeriods={data.servicePeriods}
-            onClose={() => setViewingTrip(null)}
-            onEdit={() => {
-              setEditingTrip(viewingTrip);
               setShowAddModal(true);
             }}
-            onDelete={() => handleDeleteTrip(viewingTrip.id)}
+            onExport={handleExport}
+            onImport={handleImport}
+            onReset={handleReset}
+            onArchiveClick={() => setShowArchiveModal(true)}
+            showArchived={showArchived}
+            onToggleArchived={() => setShowArchived(!showArchived)}
+            tripCount={data.trips.length}
+            specialistCount={data.specialists.length}
+            archivedCount={archivedCount}
           />
-        )}
-      </div>
-    </ErrorBoundary>
+
+          {!showArchived && (
+            <FilterChips
+              specialists={data.specialists}
+              selected={selectedSpecialist}
+              onSelect={setSelectedSpecialist}
+              tripCountBySpecialist={tripCountBySpecialist}
+            />
+          )}
+
+          <Timeline
+            specialists={visibleSpecialists}
+            trips={filteredTrips}
+            servicePeriods={data.servicePeriods || []}
+            vacations={filteredVacations}
+            trainings={filteredTrainings}
+            archivedIds={archivedIds}
+            showArchived={showArchived}
+            onSelectTrip={setViewingTrip}
+            onAddVacation={() => {
+              setEditingVacation(null);
+              setShowVacationModal(true);
+            }}
+            onDeleteVacation={handleDeleteVacation}
+            onEditVacation={handleEditVacation}
+            onAddTraining={() => {
+              setEditingTraining(null);
+              setShowTrainingModal(true);
+            }}
+            onDeleteTraining={handleDeleteTraining}
+            onEditTraining={handleEditTraining}
+          />
+
+          {showAddModal && (
+            <AddTripModal
+              specialists={data.specialists}
+              existingObjects={existingObjects}
+              initialTrip={editingTrip}
+              initialServicePeriods={editingServicePeriods}
+              onSave={handleSaveTrip}
+              onClose={() => {
+                setShowAddModal(false);
+                setEditingTrip(null);
+              }}
+            />
+          )}
+
+          {showVacationModal && (
+            <AddVacationModal
+              specialists={data.specialists}
+              initialVacation={editingVacation}
+              onSave={handleSaveVacation}
+              onClose={() => {
+                setShowVacationModal(false);
+                setEditingVacation(null);
+              }}
+            />
+          )}
+
+          {showTrainingModal && (
+            <AddTrainingModal
+              specialists={data.specialists}
+              initialTraining={editingTraining}
+              onSave={handleSaveTraining}
+              onClose={() => {
+                setShowTrainingModal(false);
+                setEditingTraining(null);
+              }}
+            />
+          )}
+
+          {showArchiveModal && (
+            <ArchiveModal
+              objects={allObjects}
+              archivedIds={archivedIds}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
+              onClose={() => setShowArchiveModal(false)}
+            />
+          )}
+
+          {viewingTrip && (
+            <TripDetailsModal
+              trip={viewingTrip}
+              specialists={data.specialists}
+              servicePeriods={data.servicePeriods}
+              onClose={() => setViewingTrip(null)}
+              onEdit={() => {
+                setEditingTrip(viewingTrip);
+                setShowAddModal(true);
+              }}
+              onDelete={() => handleDeleteTrip(viewingTrip.id)}
+            />
+          )}
+        </div>
+      </ErrorBoundary>
+    </AuthGate>
   );
 }
