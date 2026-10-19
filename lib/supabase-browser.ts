@@ -6,13 +6,20 @@ export function createClient() {
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase env vars не настроены — будет использован fallback на SEED_DATA')
-    // Возвращаем "пустой" клиент который всегда возвращает ошибки
-    // Это приведёт к тому что loadData() вернёт SEED_DATA
     return createBrowserClient(
       'https://placeholder.supabase.co',
       'placeholder-key'
     )
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  return createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      // Отключаем автоматическую проверку auth-сессии при создании клиента
+      // Это предотвращает "Database error querying schema" если auth.users
+      // имеет NULL значения или другие проблемы со схемой
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  })
 }
