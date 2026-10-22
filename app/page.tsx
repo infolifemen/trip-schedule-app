@@ -235,8 +235,8 @@ export default function Home() {
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
-          {/* Sticky wrapper: Header + Legend прилипают к верху viewport. z-index:20 — НИЖЕ строки дат (z-30), поэтому строка дат НАЕЗЖАЕТ на тулбар и закрывает его. */}
-          <div style={{ position: "sticky", top: 0, zIndex: 20 }}>
+          {/* Sticky wrapper: Header + Legend прилипают к верху И левому краю viewport (top:0, left:0). left:0 фиксирует тулбар при горизонтальном скролле, чтобы он не уезжал вместе с датой 2025. z-index:20 — НИЖЕ строки дат (z-30) и столбца объектов (z-25), но ВЫШЕ контента справа (командировок), поэтому тулбар не уезжает вправо и строка дат перекрывает его. */}
+          <div style={{ position: "sticky", top: 0, left: 0, zIndex: 20 }}>
             <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
             {/* Легенда — под toolbar. */}
             <div style={{ display: "flex", gap: 14, padding: "8px 24px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 10, color: "#5a5a72", fontFamily: "'Inter', sans-serif", flexWrap: "wrap", alignItems: "center" }}>
