@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useMemo, useEffect, useRef, useCallback, useState } from "react";
+import { memo, useMemo, useEffect, useCallback, useState } from "react";
 import type { Specialist, Trip, TimelineObject, ServicePeriod, Vacation, Training } from "@/lib/types";
 import { parseDate, diffDays, addDays, startOfMonth, today } from "@/lib/data";
 
@@ -143,7 +143,6 @@ const GridOverlay = memo(function GridOverlay({
 
 export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
   const enrichedObjects = useMemo(() => objects.map((obj) => { const objPeriods = servicePeriods.filter((p) => p.objectId === obj.id); return { ...obj, servicePeriods: objPeriods, archived: archivedIds.includes(obj.id) }; }), [objects, servicePeriods, archivedIds]);
   const visibleObjects = useMemo(() => { if (showArchived) return enrichedObjects.filter(o => o.archived); return enrichedObjects.filter(o => !o.archived); }, [enrichedObjects, showArchived]);
@@ -178,7 +177,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   const days = useMemo(() => Array.from({ length: range.totalDays }, (_, i) => addDays(range.start, i)), [range]);
   const todayOffset = useMemo(() => { const daysFromStart = diffDays(range.start, today_date); if (daysFromStart < 0 || daysFromStart > range.totalDays) return null; return daysFromStart * PX_PER_DAY; }, [range, today_date]);
 
-  useEffect(() => { if (todayOffset !== null && scrollContainerRef.current) { const container = scrollContainerRef.current; const scrollLeft = Math.max(0, todayOffset - container.clientWidth / 3); container.scrollTo({ left: scrollLeft, behavior: "smooth" }); } }, [todayOffset]);
+  // Авто-скролл к сегодняшнему дню — через window (страница скроллится целиком, не внутри container)
+  useEffect(() => { if (todayOffset !== null) { const scrollLeft = Math.max(0, todayOffset - window.innerWidth / 3); window.scrollTo({ left: scrollLeft, behavior: "smooth" }); } }, [todayOffset]);
 
   const totalWidth = range.totalDays * PX_PER_DAY;
   const [tooltipObj, setTooltipObj] = useState<TimelineObject | null>(null);
@@ -224,7 +224,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "relative", background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1 }}>
           {/* === СЛОЙ 1 (z-2): ТОЛЬКО стеклянная полоса периода услуг === */}
-          {/* ВАЖНО: z-2 < z-4 (плашки командировок), поэтому плашки будут сверху стекла */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start); const pEnd = parseDate(period.end);
             const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
@@ -248,7 +247,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
           })}
 
           {/* === СЛОЙ 3 (z-10): ТОЛЬКО маркеры начала/конца услуг === */}
-          {/* ВАЖНО: z-10 > z-8 (today line), поэтому маркеры будут поверх синей линии */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start);
             const pEnd = parseDate(period.end);
@@ -312,11 +310,11 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   if (rows.length <= 1 && showArchived) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>📦 Архив пуст.</div>;
 
   return (
-    <div style={{ flex: 1, overflow: "hidden", background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
-      <div ref={scrollContainerRef} style={{ position: "absolute", top: 0, bottom: 0, left: 0, right: 0, overflow: "auto" }}>
-        <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          <div style={{ position: "sticky", top: 0, zIndex: 15, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
+      <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
+          {/* zIndex: 30 — ВЫШЕ left column (zIndex: 15), чтобы список объектов заезжал ПОД строку с датами. sticky top: 0 — залипает у верхней кромки viewport при скролле. */}
+          <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
@@ -325,7 +323,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             </div>
           </div>
           <div style={{ display: "flex" }}>
-            <div style={{ position: "sticky", left: 0, zIndex: 20, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
+            {/* zIndex: 15 — НИЖЕ header row (zIndex: 30), поэтому список объектов заезжает ПОД строку "Объект — Вид работ". top: 0 — sticky начинается у верхней кромки viewport (заезжает под header). */}
+            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}
@@ -333,14 +332,6 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             </div>
           </div>
         </div>
-      </div>
-      <div style={{ position: "absolute", bottom: 12, right: 16, display: "flex", gap: 14, padding: "6px 14px", background: CARD_BG, backdropFilter: "blur(16px)", borderRadius: 8, border: `1px solid ${BORDER}`, fontSize: 9, color: TEXT_DIM, fontFamily: "'Inter', sans-serif", zIndex: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: TRIP_BAR_COLOR }} /><span>Командировка</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_START_COLOR, border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: MARKER_END_COLOR, border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: VACATION_GLASS, border: "1px solid rgba(245,158,11,0.3)" }} /><span>Отпуск</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: TRAINING_BAR_COLOR }} /><span>Обучение</span></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
-      </div>
     </div>
   );
 }
