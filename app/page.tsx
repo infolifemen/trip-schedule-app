@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, Component, type ReactNode, type ErrorInfo } from "react";
 import { Header } from "@/components/Header";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
@@ -87,10 +87,24 @@ export default function Home() {
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
+  // === FIXED HEADER HEIGHT: измеряем высоту fixed тулбара для spacer'а ===
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const el = headerRef.current;
+    const update = () => setHeaderHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loaded]);
+
   useEffect(() => {
     loadData().then((result) => {
       if (result.trips.length === 0 && data.trips.length > 0) {
-        console.warn("[page] Supabase returned empty, keeping local data");
+        console.warn("[page] Supabase returned пустой, оставляю локальные данные");
         setLoaded(true);
         return;
       }
@@ -235,8 +249,8 @@ export default function Home() {
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
-          {/* Sticky wrapper: Header + Legend прилипают к верху И левому краю viewport (top:0, left:0). left:0 фиксирует тулбар при горизонтальном скролле, чтобы он не уезжал вместе с датой 2025. z-index:20 — НИЖЕ строки дат (z-30) и столбца объектов (z-25), но ВЫШЕ контента справа (командировок), поэтому тулбар не уезжает вправо и строка дат перекрывает его. */}
-          <div style={{ position: "sticky", top: 0, left: 0, zIndex: 20 }}>
+          {/* Fixed wrapper: тулбар + легенда жёстко закреплены вверху viewport (fixed, top:0, left:0, right:0) — гарантированно не уезжают при горизонтальном скролле страницы, в отличие от sticky, fixed не зависит от ширины scroll container'а. z-index:20 — ниже строки дат (z-30), столбца объектов (z-25) и плашек (z-22), поэтому при прокрутке плашки заезжают НА тулбар, а строка дат закрывает его полностью. */}
+          <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 20 }}>
             <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
             {/* Легенда — под toolbar. */}
             <div style={{ display: "flex", gap: 14, padding: "8px 24px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 10, color: "#5a5a72", fontFamily: "'Inter', sans-serif", flexWrap: "wrap", alignItems: "center" }}>
@@ -247,6 +261,8 @@ export default function Home() {
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
             </div>
           </div>
+          {/* Spacer высотой с fixed тулбар — чтобы первые строки Timeline не прятались под ним при первом рендере */}
+          <div style={{ height: headerHeight, flexShrink: 0 }} />
           <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} />
           {showAddModal && <AddTripModal specialists={data.specialists} existingObjects={existingObjects} initialTrip={editingTrip} initialServicePeriods={editingServicePeriods} onSave={handleSaveTrip} onClose={() => { setShowAddModal(false); setEditingTrip(null); }} />}
           {showVacationModal && <AddVacationModal specialists={data.specialists} initialVacation={editingVacation} onSave={handleSaveVacation} onClose={() => { setShowVacationModal(false); setEditingVacation(null); }} />}
