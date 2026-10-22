@@ -313,7 +313,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
     <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* zIndex: 30 — выше wrapper toolbar (zIndex:20) и столбца объектов (zIndex:25). Строка дат НАЕЗЖАЕТ на тулбар и на столбец объектов, закрывая оба. top: 0 — прилипает к самому верху viewport. */}
+          {/* zIndex: 30 — выше fixed тулбара (z-20), столбца объектов (z-25) и плашек (z-22). Строка дат НАЕЗЖАЕТ на всё, закрывая и тулбар, и столбец, и плашки. top: 0 — прилипает к самому верху viewport. */}
           <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
@@ -322,8 +322,9 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
               <div style={{ height: 28, position: "relative" }}>{days.map((day, i) => { const weekend = isWeekend(day); const isToday = diffDays(day, today_date) === 0; return (<div key={i} data-testid={`daycell-${i}`} style={{ position: "absolute", top: 0, left: i * PX_PER_DAY, width: PX_PER_DAY, height: 28, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontSize: 8, fontFamily: "'JetBrains Mono', monospace", fontWeight: isToday ? 700 : 500, color: isToday ? "#2563eb" : weekend ? "#dc2626" : TEXT_DIM, lineHeight: 1.2 }}><span>{formatDay(day)}</span><span style={{ fontSize: 6, opacity: 0.7 }}>{formatDayWeekday(day)}</span></div>); })}</div>
             </div>
           </div>
-          <div style={{ display: "flex" }}>
-            {/* zIndex: 25 — ВЫШЕ тулбара (zIndex:20), но НИЖЕ строки дат (zIndex:30). Столбец объектов заезжает НА тулбар, но ПОД строку дат при вертикальной прокрутке. left:0 + top:0 — не уезжает ни горизонтально, ни вертикально. */}
+          {/* zIndex: 22 — ВЫШЕ fixed тулбара (z-20), но НИЖЕ строки дат (z-30) и столбца объектов (z-25). При вертикальной прокрутке плашки командировок заезжают НА тулбар (22 > 20), а столбец (z-25) и строка дат (z-30) остаются поверх. position: relative создаёт stacking context для корректной работы z-index детей. */}
+          <div style={{ display: "flex", position: "relative", zIndex: 22 }}>
+            {/* zIndex: 25 — ВЫШЕ плашек (z-22) и тулбара (z-20), но НИЖЕ строки дат (z-30). Столбец объектов заезжает НА тулбар и НА плашки, но ПОД строку дат при вертикальной прокрутке. left:0 + top:0 — не уезжает ни горизонтально, ни вертикально. */}
             <div style={{ position: "sticky", left: 0, top: 0, zIndex: 25, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
