@@ -313,7 +313,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
     <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* zIndex: 30 — выше wrapper toolbar (zIndex:20). Строка дат НАЕЗЖАЕТ на тулбар и закрывает его. top: 0 — прилипает к самому верху viewport. */}
+          {/* zIndex: 30 — выше wrapper toolbar (zIndex:20) и столбца объектов (zIndex:25). Строка дат НАЕЗЖАЕТ на тулбар и на столбец объектов, закрывая оба. top: 0 — прилипает к самому верху viewport. */}
           <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
@@ -323,8 +323,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             </div>
           </div>
           <div style={{ display: "flex" }}>
-            {/* zIndex: 15 — НИЖЕ строки дат (zIndex:30) и тулбара (zIndex:20). top: 0 — заезжает под строку дат при прокрутке. */}
-            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
+            {/* zIndex: 25 — ВЫШЕ тулбара (zIndex:20), но НИЖЕ строки дат (zIndex:30). Столбец объектов заезжает НА тулбар, но ПОД строку дат при вертикальной прокрутке. left:0 + top:0 — не уезжает ни горизонтально, ни вертикально. */}
+            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 25, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}
