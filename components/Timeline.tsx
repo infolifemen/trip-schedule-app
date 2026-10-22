@@ -9,7 +9,6 @@ interface TimelineProps {
   archivedIds?: string[]; showArchived?: boolean; onSelectTrip?: (trip: Trip) => void; onAddVacation?: () => void;
   onDeleteVacation?: (vacationId: string) => void; onEditVacation?: (vacation: Vacation) => void; onAddTraining?: () => void;
   onDeleteTraining?: (trainingId: string) => void; onEditTraining?: (training: Training) => void;
-  stickyTopOffset?: number; // Высота sticky toolbar (Header+Legend) из page.tsx — строка дат прилипает ПОД toolbar
 }
 
 const PX_PER_DAY = 20; const ROW_HEIGHT = 44; const LEFT_COL_WIDTH = 220; const HEADER_HEIGHT = 56;
@@ -142,7 +141,7 @@ const GridOverlay = memo(function GridOverlay({
   );
 });
 
-export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining, stickyTopOffset = 0 }: TimelineProps) {
+export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
   const enrichedObjects = useMemo(() => objects.map((obj) => { const objPeriods = servicePeriods.filter((p) => p.objectId === obj.id); return { ...obj, servicePeriods: objPeriods, archived: archivedIds.includes(obj.id) }; }), [objects, servicePeriods, archivedIds]);
@@ -310,17 +309,12 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   if (rows.length <= 1 && !showArchived) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>Нет данных. Добавьте командировку, чтобы начать.</div>;
   if (rows.length <= 1 && showArchived) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>📦 Архив пуст.</div>;
 
-  // stickyTopOffset — высота sticky toolbar (Header+Legend) из page.tsx.
-  // Строка дат прилипает ПОД toolbar: top = stickyTopOffset.
-  // zIndex: 30 — ниже Header (zIndex:40), но выше left column (zIndex:15).
-  const stickyTop = stickyTopOffset > 0 ? stickyTopOffset : 0;
-
   return (
     <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* zIndex: 30 — ниже toolbar (zIndex:40), чтобы строка дат заезжала ПОД toolbar. top: stickyTopOffset — прилипает ПОД toolbar. */}
-          <div style={{ position: "sticky", top: stickyTop, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
+          {/* zIndex: 30 — выше wrapper toolbar (zIndex:20). Строка дат НАЕЗЖАЕТ на тулбар и закрывает его. top: 0 — прилипает к самому верху viewport. */}
+          <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
@@ -329,8 +323,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             </div>
           </div>
           <div style={{ display: "flex" }}>
-            {/* zIndex: 15 — НИЖЕ строки дат (zIndex:30). top: stickyTop — прилипает ПОД toolbar вместе со строкой дат. */}
-            <div style={{ position: "sticky", left: 0, top: stickyTop, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
+            {/* zIndex: 15 — НИЖЕ строки дат (zIndex:30) и тулбара (zIndex:20). top: 0 — заезжает под строку дат при прокрутке. */}
+            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}
