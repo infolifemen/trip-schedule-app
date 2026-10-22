@@ -37,8 +37,7 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
   const btnStyle: React.CSSProperties = { padding: 8, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 8, color: "#5a5a72", cursor: "pointer", transition: "all 0.15s ease", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
   return (
-    // sticky top:0 — toolbar прилипает к верхней кромке viewport. zIndex:40 выше строки дат Timeline (zIndex:30).
-    <header style={{ position: "sticky", top: 0, zIndex: 40, background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    <header style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e", margin: 0, letterSpacing: "-0.3px" }}>📊 График командировок</h1>
