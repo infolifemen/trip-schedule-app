@@ -104,7 +104,7 @@ export default function Home() {
   useEffect(() => {
     loadData().then((result) => {
       if (result.trips.length === 0 && data.trips.length > 0) {
-        console.warn("[page] Supabase returned пустой, оставляю локальные данные");
+        console.warn("[page] Supabase вернул пустой, оставляю локальные данные");
         setLoaded(true);
         return;
       }
@@ -249,17 +249,9 @@ export default function Home() {
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
-          {/* Fixed wrapper: тулбар + легенда жёстко закреплены вверху viewport (fixed, top:0, left:0, right:0) — гарантированно не уезжают при горизонтальном скролле страницы, в отличие от sticky, fixed не зависит от ширины scroll container'а. z-index:20 — ниже строки дат (z-30), столбца объектов (z-25) и плашек (z-22), поэтому при прокрутке плашки заезжают НА тулбар, а строка дат закрывает его полностью. */}
+          {/* Fixed wrapper: тулбар жёстко закреплён вверху viewport (fixed, top:0, left:0, right:0) — гарантированно не уезжает при горизонтальном скролле страницы, в отличие от sticky, fixed не зависит от ширины scroll container'а. z-index:20 — ниже строки дат (z-30), столбца объектов (z-25) и плашек (z-22), поэтому при прокрутке плашки заезжают НА тулбар, а строка дат закрывает его полностью. */}
           <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 20 }}>
             <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
-            {/* Легенда — под toolbar. */}
-            <div style={{ display: "flex", gap: 14, padding: "8px 24px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 10, color: "#5a5a72", fontFamily: "'Inter', sans-serif", flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#2563eb" }} /><span>Командировка</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626", border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "rgba(245, 158, 11, 0.25)", border: "1px solid rgba(245,158,11,0.3)" }} /><span>Отпуск</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#8b5cf6" }} /><span>Обучение</span></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
-            </div>
           </div>
           {/* Spacer высотой с fixed тулбар — чтобы первые строки Timeline не прятались под ним при первом рендере */}
           <div style={{ height: headerHeight, flexShrink: 0 }} />
