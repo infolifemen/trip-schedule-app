@@ -9,6 +9,7 @@ interface TimelineProps {
   archivedIds?: string[]; showArchived?: boolean; onSelectTrip?: (trip: Trip) => void; onAddVacation?: () => void;
   onDeleteVacation?: (vacationId: string) => void; onEditVacation?: (vacation: Vacation) => void; onAddTraining?: () => void;
   onDeleteTraining?: (trainingId: string) => void; onEditTraining?: (training: Training) => void;
+  stickyTopOffset?: number; // Высота sticky toolbar (Header+Legend) из page.tsx — строка дат прилипает ПОД toolbar
 }
 
 const PX_PER_DAY = 20; const ROW_HEIGHT = 44; const LEFT_COL_WIDTH = 220; const HEADER_HEIGHT = 56;
@@ -141,7 +142,7 @@ const GridOverlay = memo(function GridOverlay({
   );
 });
 
-export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining }: TimelineProps) {
+export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining, stickyTopOffset = 0 }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
   const enrichedObjects = useMemo(() => objects.map((obj) => { const objPeriods = servicePeriods.filter((p) => p.objectId === obj.id); return { ...obj, servicePeriods: objPeriods, archived: archivedIds.includes(obj.id) }; }), [objects, servicePeriods, archivedIds]);
@@ -295,7 +296,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             if (bar.left + bar.width < 0 || bar.left > totalWidth) return null;
             const opacity = bar.count > 1 ? 0.45 : 0.35;
             return (
-              <div key={`vac-bar-${bi}`} style={{ position: "absolute", top: 6, left: Math.max(bar.left, 0), width: Math.max(bar.width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: VACATION_GLASS, backdropFilter: bar.count > 1 ? "blur(8px)" : "blur(4px)", WebkitBackdropFilter: bar.count > 1 ? "blur(8px)" : "blur(4px)", border: `1px solid rgba(245, 158, 11, ${opacity})`, borderRadius: 6, color: "#92400e", fontSize: 9, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 6px", overflow: "hidden", boxShadow: bar.count > 1 ? "0 2px 12px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.3)" : "0 1px 4px rgba(245,158,11,0.1)", cursor: "pointer", zIndex: 4, transition: "all 0.15s ease" }} title={bar.count > 1 ? `🌴 ${bar.count} отпуска: ${bar.names.join(", ")} — клик=редактировать, ПКМ=удалить` : `🌴 ${bar.names[0]} — клик=редактировать, ПКМ=удалить`} onClick={() => { if (onEditVacation && vacations.length > 0) { const vac = vacations.find(v => { const vStart = parseDate(v.start); const vEnd = parseDate(v.end); return vStart >= bar.start && vStart <= bar.end; }); if (vac) onEditVacation(vac); } }} onContextMenu={(e) => { e.preventDefault(); if (onDeleteVacation && vacations.length > 0) { const vac = vacations.find(v => { const vStart = parseDate(v.start); return vStart >= bar.start && vStart <= bar.end; }); if (vac && confirm(`Удалить отпуск ${bar.names[0]}?`)) onDeleteVacation(vac.id); } }}>
+              <div key={`vac-bar-${bi}`} style={{ position: "absolute", top: 6, left: Math.max(bar.left, 0), width: Math.max(bar.width - 2, PX_PER_DAY), height: ROW_HEIGHT - 12, background: VACATION_GLASS, backdropFilter: bar.count > 1 ? "blur(8px)" : "blur(4px)", WebkitBackdropFilter: bar.count > 1 ? "blur(8px)" : "blur(4px)", border: `1px solid rgba(245, 158, 11, ${opacity})`, borderRadius: 6, color: "#92400e", fontSize: 9, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", display: "flex", alignItems: "center", justifyContent: "center", padding: "0 6px", overflow: "hidden", boxShadow: bar.count > 1 ? "0 2px 12px rgba(245,158,11,0.15), inset 0 1px 0 rgba(255,255,255,0.3)" : "0 1px 4px rgba(245,158,11,0.1)", cursor: "pointer", zIndex: 4, transition: "all 0.15s ease" }} title={bar.count > 1 ? `🌴 ${bar.count} отпуска: ${bar.names.join(", ")} — клик=редактировать, ПКМ=удалить` : `🌴 ${bar.names[0]} — клик=редактировать, ПКМ=удалить`} onClick={() => { if (onEditVacation && vacations.length > 0) { const vac = vacations.find(v => { const vStart = parseDate(v.start); const vEnd = parseDate(v.end); return vStart >= bar.start && vStart <= bar.end; }); if (vac) onEditVacation(vac); } }} onContextMenu={(e) => { e.preventDefault(); if (onDeleteVacation && vacations.length > 0) { const vac = vacations.find(v => { const vStart = parseDate(v.start); return vStart >= bar.start; }); if (vac && confirm(`Удалить отпуск ${bar.names[0]}?`)) onDeleteVacation(vac.id); } }}>
                 <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{bar.count > 1 ? `🌴 ×${bar.count}` : "🌴"} {bar.names.length <= 2 ? bar.names.join(", ") : `${bar.names[0]} +${bar.names.length - 1}`}</span>
               </div>
             );
@@ -309,12 +310,17 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   if (rows.length <= 1 && !showArchived) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>Нет данных. Добавьте командировку, чтобы начать.</div>;
   if (rows.length <= 1 && showArchived) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: TEXT_DIM, padding: 40, fontFamily: "'Inter', sans-serif" }}>📦 Архив пуст.</div>;
 
+  // stickyTopOffset — высота sticky toolbar (Header+Legend) из page.tsx.
+  // Строка дат прилипает ПОД toolbar: top = stickyTopOffset.
+  // zIndex: 30 — ниже Header (zIndex:40), но выше left column (zIndex:15).
+  const stickyTop = stickyTopOffset > 0 ? stickyTopOffset : 0;
+
   return (
     <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
       <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
-          {/* zIndex: 30 — ВЫШЕ left column (zIndex: 15), чтобы список объектов заезжал ПОД строку с датами. sticky top: 0 — залипает у верхней кромки viewport при скролле. */}
-          <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
+          {/* zIndex: 30 — ниже toolbar (zIndex:40), чтобы строка дат заезжала ПОД toolbar. top: stickyTopOffset — прилипает ПОД toolbar. */}
+          <div style={{ position: "sticky", top: stickyTop, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
             <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
@@ -323,8 +329,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             </div>
           </div>
           <div style={{ display: "flex" }}>
-            {/* zIndex: 15 — НИЖЕ header row (zIndex: 30), поэтому список объектов заезжает ПОД строку "Объект — Вид работ". top: 0 — sticky начинается у верхней кромки viewport (заезжает под header). */}
-            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
+            {/* zIndex: 15 — НИЖЕ строки дат (zIndex:30). top: stickyTop — прилипает ПОД toolbar вместе со строкой дат. */}
+            <div style={{ position: "sticky", left: 0, top: stickyTop, zIndex: 15, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}

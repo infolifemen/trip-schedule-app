@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, useMemo, useCallback, Component, useRef, type ReactNode, type ErrorInfo } from "react";
 import { Header } from "@/components/Header";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
@@ -86,6 +86,18 @@ export default function Home() {
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
+
+  // Sticky toolbar: измеряем высоту Header+Legend, передаём в Timeline чтобы строка дат прилипала ПОД toolbar
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
+  const [stickyHeight, setStickyHeight] = useState(0);
+  useEffect(() => {
+    if (!stickyHeaderRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      setStickyHeight(Math.round(entries[0].target.getBoundingClientRect().height));
+    });
+    ro.observe(stickyHeaderRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     loadData().then((result) => {
@@ -235,17 +247,19 @@ export default function Home() {
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
-          {/* Header toolbar — НЕ sticky, уезжает при скролле. Строка дат Timeline (sticky top:0) наезжает на него и залипает у верхней кромки. */}
-          <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
-          {/* Легенда — перенесена из Timeline вверх, под toolbar (Фильтр/Добавить/Архив/Управление/Выйти). НЕ sticky — уезжает при скролле. */}
-          <div style={{ display: "flex", gap: 14, padding: "8px 24px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 10, color: "#5a5a72", fontFamily: "'Inter', sans-serif", flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#2563eb" }} /><span>Командировка</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626", border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "rgba(245, 158, 11, 0.25)", border: "1px solid rgba(245,158,11,0.3)" }} /><span>Отпуск</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#8b5cf6" }} /><span>Обучение</span></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
+          {/* Sticky header block: Header + Legend — прилипает к верху viewport. ResizeObserver измеряет высоту, передаётся в Timeline. */}
+          <div ref={stickyHeaderRef}>
+            <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
+            {/* Легенда — под toolbar (Фильтр/Добавить/Архив/Управление/Выйти). Прилипает вместе с Header. */}
+            <div style={{ display: "flex", gap: 14, padding: "8px 24px", background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 10, color: "#5a5a72", fontFamily: "'Inter', sans-serif", flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#2563eb" }} /><span>Командировка</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ display: "flex", alignItems: "center", gap: 2 }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#16a34a", border: "1px solid #fff" }} /><div style={{ width: 12, height: 8, background: "rgba(37,99,235,0.12)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 2 }} /><div style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626", border: "1px solid #fff" }} /></div><span>Период услуг</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "rgba(245, 158, 11, 0.25)", border: "1px solid rgba(245,158,11,0.3)" }} /><span>Отпуск</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 18, height: 10, borderRadius: 3, background: "#8b5cf6" }} /><span>Обучение</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 2, height: 10, background: "#2563eb", borderRadius: 1 }} /><span>Сегодня</span></div>
+            </div>
           </div>
-          <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} />
+          <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} stickyTopOffset={stickyHeight} />
           {showAddModal && <AddTripModal specialists={data.specialists} existingObjects={existingObjects} initialTrip={editingTrip} initialServicePeriods={editingServicePeriods} onSave={handleSaveTrip} onClose={() => { setShowAddModal(false); setEditingTrip(null); }} />}
           {showVacationModal && <AddVacationModal specialists={data.specialists} initialVacation={editingVacation} onSave={handleSaveVacation} onClose={() => { setShowVacationModal(false); setEditingVacation(null); }} />}
           {showTrainingModal && <AddTrainingModal specialists={data.specialists} initialTraining={editingTraining} onSave={handleSaveTraining} onClose={() => { setShowTrainingModal(false); setEditingTraining(null); }} />}
