@@ -37,7 +37,9 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
   const btnStyle: React.CSSProperties = { padding: 8, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 8, color: "#5a5a72", cursor: "pointer", transition: "all 0.15s ease", display: "inline-flex", alignItems: "center", justifyContent: "center" };
 
   return (
-    <header style={{ background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
+    // НЕ sticky — toolbar уезжает при скролле. Строка дат в Timeline (sticky top:0) наезжает на него и залипает у верхней кромки.
+    // position: relative + zIndex: 1000 создаёт stacking context, чтобы dropdown menus (zIndex: 9999) были ВЫШЕ Timeline sticky элементов (zIndex: 30/15).
+    <header style={{ position: "relative", zIndex: 1000, background: "rgba(255,255,255,0.72)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <div style={{ padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: "#1a1a2e", margin: 0, letterSpacing: "-0.3px" }}>📊 График командировок</h1>
