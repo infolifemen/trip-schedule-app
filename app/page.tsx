@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef, Component, type Reac
 import { Header } from "@/components/Header";
 import { Timeline } from "@/components/Timeline";
 import { AddTripModal } from "@/components/AddTripModal";
+import { AddServicePeriodModal } from "@/components/AddServicePeriodModal";
 import { AddVacationModal } from "@/components/AddVacationModal";
 import { AddTrainingModal } from "@/components/AddTrainingModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
@@ -78,6 +79,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [selectedSpecialist, setSelectedSpecialist] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showServicePeriodModal, setShowServicePeriodModal] = useState(false);
   const [showVacationModal, setShowVacationModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showTrainingModal, setShowTrainingModal] = useState(false);
@@ -235,6 +237,14 @@ export default function Home() {
 
   const handleDeleteTraining = useCallback(async (trainingId: string) => { await deleteTraining(trainingId); setData((prev) => ({ ...prev, trainings: (prev.trainings || []).filter(t => t.id !== trainingId) })); }, []);
 
+  const handleSaveServicePeriods = useCallback(async (objectId: string, periods: ServicePeriod[]) => {
+    await saveServicePeriods(objectId, periods);
+    setData((prev) => {
+      const updatedPeriods = (prev.servicePeriods || []).filter(p => p.objectId !== objectId);
+      return { ...prev, servicePeriods: [...updatedPeriods, ...periods] };
+    });
+  }, []);
+
   const handleEditVacation = useCallback((vacation: Vacation) => { setEditingVacation(vacation); setShowVacationModal(true); }, []);
   const handleEditTraining = useCallback((training: Training) => { setEditingTraining(training); setShowTrainingModal(true); }, []);
 
@@ -250,13 +260,14 @@ export default function Home() {
         {!loaded && <LoadingBar />}
         {/* Хедер ВСЕГДА рендерится независимо от loaded — чтобы не было "появляется через раз" */}
         <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000 }}>
-          <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
+          <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onAddServicePeriod={() => setShowServicePeriodModal(true)} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
         </div>
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
           {/* Spacer высотой с fixed тулбар — чтобы первые строки Timeline не прятались под ним при первом рендере */}
           <div style={{ height: headerHeight, flexShrink: 0 }} />
           <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} />
           {showAddModal && <AddTripModal specialists={data.specialists} existingObjects={existingObjects} initialTrip={editingTrip} initialServicePeriods={editingServicePeriods} onSave={handleSaveTrip} onClose={() => { setShowAddModal(false); setEditingTrip(null); }} />}
+          {showServicePeriodModal && <AddServicePeriodModal existingObjects={existingObjects} onSave={handleSaveServicePeriods} onClose={() => setShowServicePeriodModal(false)} />}
           {showVacationModal && <AddVacationModal specialists={data.specialists} initialVacation={editingVacation} onSave={handleSaveVacation} onClose={() => { setShowVacationModal(false); setEditingVacation(null); }} />}
           {showTrainingModal && <AddTrainingModal specialists={data.specialists} initialTraining={editingTraining} onSave={handleSaveTraining} onClose={() => { setShowTrainingModal(false); setEditingTraining(null); }} />}
           {showArchiveModal && <ArchiveModal objects={allObjects} archivedIds={archivedIds} onArchive={handleArchive} onUnarchive={handleUnarchive} onClose={() => setShowArchiveModal(false)} />}

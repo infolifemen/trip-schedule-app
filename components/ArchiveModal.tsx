@@ -53,70 +53,73 @@ export function ArchiveModal({
     setSelectedIds(new Set(ids));
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    background: "#1e293b",
-    border: "1px solid #334155",
-    borderRadius: 8,
-    padding: "8px 12px",
-    color: "#fff",
-    fontSize: 13,
-    fontFamily: "inherit",
-    outline: "none",
-  };
-
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-lg max-h-[85vh] overflow-auto animate-fade-in"
+        className="w-full max-w-lg max-h-[85vh] overflow-auto animate-fade-in"
         onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid rgba(0,0,0,0.08)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08)",
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Archive size={20} className="text-amber-400" />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <Archive size={20} style={{ color: "#f59e0b" }} />
             Архивирование объектов
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+            style={{ padding: "6px 8px", borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.05)"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}
           >
-            <X size={18} className="text-slate-400" />
+            <X size={18} style={{ color: "#5a5a72" }} />
           </button>
         </div>
 
-        <div className="p-5 space-y-6">
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
           {/* Активные объекты — для архивирования */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-semibold text-slate-300">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <label style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e" }}>
                 📋 Активные объекты ({activeObjects.length})
               </label>
               {activeObjects.length > 0 && (
                 <button
                   onClick={() => selectAll(activeObjects.map(o => o.id))}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+                  style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Выбрать все
                 </button>
               )}
             </div>
             {activeObjects.length === 0 ? (
-              <div className="text-sm text-slate-500 text-center py-4 bg-slate-800/50 rounded-lg">
+              <div style={{ fontSize: 13, color: "#8e8ea0", textAlign: "center", padding: "16px 0", background: "#f8fafc", borderRadius: 10 }}>
                 Нет активных объектов
               </div>
             ) : (
-              <div className="space-y-1 max-h-48 overflow-auto">
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 192, overflow: "auto" }}>
                 {activeObjects.map((obj) => (
                   <label
                     key={obj.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors"
                     style={{
-                      background: selectedIds.has(obj.id) ? "rgba(245,158,11,0.1)" : "rgba(0,0,0,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: selectedIds.has(obj.id) ? "rgba(245,158,11,0.08)" : "#f8fafc",
                       border: selectedIds.has(obj.id) ? "1px solid rgba(245,158,11,0.3)" : "1px solid transparent",
                     }}
                   >
@@ -124,19 +127,19 @@ export function ArchiveModal({
                       type="checkbox"
                       checked={selectedIds.has(obj.id)}
                       onChange={() => toggleSelect(obj.id)}
-                      className="w-4 h-4 rounded accent-amber-500"
+                      style={{ width: 16, height: 16, borderRadius: 4, accentColor: "#f59e0b" }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-200 truncate">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#1a1a2e", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {obj.city} — {obj.purpose}
                       </div>
                       {obj.equipment && (
-                        <div className="text-xs text-slate-500 truncate">
+                        <div style={{ fontSize: 11, color: "#8e8ea0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {obj.equipment}
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-slate-600 shrink-0">
+                    <span style={{ fontSize: 11, color: "#8e8ea0", flexShrink: 0 }}>
                       {obj.trips.length} ком.
                     </span>
                   </label>
@@ -148,24 +151,30 @@ export function ArchiveModal({
           {/* Архивные объекты — для восстановления */}
           {archivedObjects.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-semibold text-slate-300">
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <label style={{ fontSize: 14, fontWeight: 600, color: "#1a1a2e" }}>
                   📦 В архиве ({archivedObjects.length})
                 </label>
                 <button
                   onClick={() => selectAll(archivedObjects.map(o => o.id))}
-                  className="text-xs text-blue-400 hover:text-blue-300"
+                  style={{ fontSize: 12, color: "#2563eb", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   Выбрать все
                 </button>
               </div>
-              <div className="space-y-1 max-h-36 overflow-auto">
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 144, overflow: "auto" }}>
                 {archivedObjects.map((obj) => (
                   <label
                     key={obj.id}
-                    className="flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors"
                     style={{
-                      background: selectedIds.has(obj.id) ? "rgba(34,197,94,0.1)" : "rgba(0,0,0,0.2)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                      background: selectedIds.has(obj.id) ? "rgba(34,197,94,0.08)" : "#f8fafc",
                       border: selectedIds.has(obj.id) ? "1px solid rgba(34,197,94,0.3)" : "1px solid transparent",
                       opacity: 0.7,
                     }}
@@ -174,10 +183,10 @@ export function ArchiveModal({
                       type="checkbox"
                       checked={selectedIds.has(obj.id)}
                       onChange={() => toggleSelect(obj.id)}
-                      className="w-4 h-4 rounded accent-green-500"
+                      style={{ width: 16, height: 16, borderRadius: 4, accentColor: "#22c55e" }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-400 truncate">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#5a5a72", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {obj.city} — {obj.purpose}
                       </div>
                     </div>
@@ -189,17 +198,21 @@ export function ArchiveModal({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 p-5 border-t border-slate-800">
+        <div style={{ display: "flex", gap: 12, padding: "20px 24px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+            style={{ flex: 1, padding: "12px 16px", background: "#f1f5f9", color: "#5a5a72", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "#e2e8f0"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "#f1f5f9"; }}
           >
             Отмена
           </button>
           {archivedObjects.some(o => selectedIds.has(o.id)) && (
             <button
               onClick={handleUnarchive}
-              className="px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+              style={{ padding: "12px 16px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { (e.currentTarget).style.background = "#16a34a"; }}
+              onMouseLeave={(e) => { (e.currentTarget).style.background = "#22c55e"; }}
             >
               ↩ Восстановить ({Array.from(selectedIds).filter(id => archivedIds.includes(id)).length})
             </button>
@@ -207,7 +220,9 @@ export function ArchiveModal({
           {activeObjects.some(o => selectedIds.has(o.id)) && (
             <button
               onClick={handleArchive}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors"
+              style={{ padding: "12px 16px", background: "#f59e0b", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { (e.currentTarget).style.background = "#d97706"; }}
+              onMouseLeave={(e) => { (e.currentTarget).style.background = "#f59e0b"; }}
             >
               📦 В архив ({Array.from(selectedIds).filter(id => !archivedIds.includes(id)).length})
             </button>
@@ -215,7 +230,7 @@ export function ArchiveModal({
           {selectedIds.size === 0 && (
             <button
               disabled
-              className="flex-1 px-4 py-2.5 bg-slate-800 text-slate-600 rounded-lg font-medium cursor-not-allowed"
+              style={{ flex: 1, padding: "12px 16px", background: "#f1f5f9", color: "#94a3b8", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "not-allowed", fontFamily: "inherit" }}
             >
               Выберите объекты
             </button>
