@@ -7,6 +7,7 @@ import type { Specialist } from "@/lib/types";
 
 interface HeaderProps {
   onAddTrip: () => void;
+  onAddServicePeriod: () => void;
   onArchiveClick: () => void;
   showArchived: boolean;
   onToggleArchived: () => void;
@@ -19,14 +20,17 @@ interface HeaderProps {
   tripCountBySpecialist: Record<string, number>;
 }
 
-export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchived, tripCount, specialistCount, archivedCount, specialists, selectedSpecialist, onSelectSpecialist, tripCountBySpecialist }: HeaderProps) {
+export function Header({ onAddTrip, onAddServicePeriod, onArchiveClick, showArchived, onToggleArchived, tripCount, specialistCount, archivedCount, specialists, selectedSpecialist, onSelectSpecialist, tripCountBySpecialist }: HeaderProps) {
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [archiveMenuOpen, setArchiveMenuOpen] = useState(false);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const archiveRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) setAddMenuOpen(false);
       if (archiveRef.current && !archiveRef.current.contains(e.target as Node)) setArchiveMenuOpen(false);
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) setFilterMenuOpen(false);
     };
@@ -64,7 +68,27 @@ export function Header({ onAddTrip, onArchiveClick, showArchived, onToggleArchiv
               </div>
             )}
           </div>
-          <button onClick={onAddTrip} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(37,99,235,0.3)", transition: "all 0.15s ease", fontFamily: "inherit" }} onMouseEnter={(e) => { (e.currentTarget).style.background = "#1d4ed8"; (e.currentTarget).style.transform = "scale(1.02)"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = "#2563eb"; (e.currentTarget).style.transform = "scale(1)"; }}><Plus size={16} />Добавить</button>
+          <div ref={addMenuRef} style={{ position: "relative" }}>
+            <button onClick={() => setAddMenuOpen(!addMenuOpen)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(37,99,235,0.3)", transition: "all 0.15s ease", fontFamily: "inherit" }} onMouseEnter={(e) => { (e.currentTarget).style.background = "#1d4ed8"; (e.currentTarget).style.transform = "scale(1.02)"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = "#2563eb"; (e.currentTarget).style.transform = "scale(1)"; }}><Plus size={16} />Добавить<ChevronDown size={12} /></button>
+            {addMenuOpen && (
+              <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "rgba(255,255,255,0.98)", backdropFilter: "blur(16px)", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.12)", padding: 6, minWidth: 240, zIndex: 9999 }}>
+                <button onClick={() => { onAddTrip(); setAddMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#1a1a2e", fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", transition: "all 0.1s", fontFamily: "inherit" }} onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(37,99,235,0.08)"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}>
+                  <span style={{ fontSize: 18 }}>✈️</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Командировка</div>
+                    <div style={{ fontSize: 10, color: "#8e8ea0", marginTop: 2 }}>Выбор специалистов, объект и даты</div>
+                  </div>
+                </button>
+                <button onClick={() => { onAddServicePeriod(); setAddMenuOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#1a1a2e", fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", transition: "all 0.1s", fontFamily: "inherit" }} onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(16,185,129,0.08)"; }} onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}>
+                  <span style={{ fontSize: 18 }}>📅</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>Период оказания услуг</div>
+                    <div style={{ fontSize: 10, color: "#8e8ea0", marginTop: 2 }}>Только существующие сделки и даты</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
           <div ref={archiveRef} style={{ position: "relative" }}>
             <button onClick={() => setArchiveMenuOpen(!archiveMenuOpen)} style={{ ...btnStyle, gap: 6, padding: "8px 12px", fontSize: 12, fontWeight: 600, background: showArchived ? "rgba(245,158,11,0.15)" : "rgba(0,0,0,0.04)", border: showArchived ? "1px solid rgba(245,158,11,0.3)" : "1px solid rgba(0,0,0,0.06)", color: showArchived ? "#f59e0b" : "#5a5a72" }} onMouseEnter={(e) => { if (!showArchived) (e.currentTarget).style.background = "rgba(0,0,0,0.08)"; else (e.currentTarget).style.background = "rgba(245,158,11,0.2)"; }} onMouseLeave={(e) => { if (!showArchived) (e.currentTarget).style.background = "rgba(0,0,0,0.04)"; else (e.currentTarget).style.background = "rgba(245,158,11,0.15)"; }}>
               {showArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}Архив{archivedCount > 0 && !showArchived && <span style={{ background: "rgba(245,158,11,0.2)", color: "#d97706", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 10, minWidth: 16, textAlign: "center" }}>{archivedCount}</span>}<ChevronDown size={12} />

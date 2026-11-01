@@ -59,13 +59,14 @@ export function AddTrainingModal({
     onClose();
   };
 
+  // Светлая тема
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    background: "#1e293b",
-    border: "1px solid #334155",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
     borderRadius: 8,
-    padding: "8px 12px",
-    color: "#fff",
+    padding: "10px 12px",
+    color: "#1a1a2e",
     fontSize: 13,
     fontFamily: "inherit",
     outline: "none",
@@ -75,33 +76,42 @@ export function AddTrainingModal({
     display: "block",
     fontSize: 12,
     fontWeight: 600,
-    color: "#94a3b8",
+    color: "#5a5a72",
     marginBottom: 6,
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 rounded-2xl shadow-2xl border border-slate-700 w-full max-w-sm animate-fade-in"
+        className="w-full max-w-sm animate-fade-in"
         onClick={(e) => e.stopPropagation()}
-        style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}
+        style={{
+          background: "#fff",
+          borderRadius: 16,
+          border: "1px solid rgba(0,0,0,0.08)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.15), 0 4px 16px rgba(0,0,0,0.08)",
+          fontFamily: "'Inter', -apple-system, sans-serif",
+        }}
       >
-        <div className="flex items-center justify-between p-5 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#1a1a2e", margin: 0 }}>
             {initialTraining ? "✏️ Редактировать" : "📚 Добавить"} обучение
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
+            style={{ padding: "6px 8px", borderRadius: 8, border: "none", background: "transparent", cursor: "pointer" }}
+            onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(0,0,0,0.05)"; }}
+            onMouseLeave={(e) => { (e.currentTarget).style.background = "transparent"; }}
           >
-            <X size={18} className="text-slate-400" />
+            <X size={18} style={{ color: "#5a5a72" }} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
           <div>
             <label style={labelStyle}>Специалист</label>
             <select
@@ -130,7 +140,7 @@ export function AddTrainingModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Начало</label>
               <input
@@ -152,22 +162,26 @@ export function AddTrainingModal({
           </div>
 
           {error && (
-            <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2">
+            <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#dc2626" }}>
               {error}
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
+          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-medium transition-colors"
+              style={{ flex: 1, padding: "12px 16px", background: "#f1f5f9", color: "#5a5a72", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
+              onMouseEnter={(e) => { (e.currentTarget).style.background = "#e2e8f0"; }}
+              onMouseLeave={(e) => { (e.currentTarget).style.background = "#f1f5f9"; }}
             >
               Отмена
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-medium rounded-lg shadow-lg transition-all"
+              style={{ flex: 1, padding: "12px 16px", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 4px 12px rgba(139,92,246,0.3)" }}
+              onMouseEnter={(e) => { (e.currentTarget).style.background = "#7c3aed"; }}
+              onMouseLeave={(e) => { (e.currentTarget).style.background = "#8b5cf6"; }}
             >
               {initialTraining ? "Сохранить" : "Добавить"}
             </button>
