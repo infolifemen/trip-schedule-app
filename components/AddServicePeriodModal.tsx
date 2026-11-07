@@ -9,22 +9,28 @@ interface AddServicePeriodModalProps {
   existingObjects: ExistingObject[];
   onSave: (objectId: string, periods: ServicePeriod[]) => void;
   onClose: () => void;
+  initialObjectId?: string;
+  initialPeriods?: ServicePeriod[];
 }
 
 export function AddServicePeriodModal({
   existingObjects,
   onSave,
   onClose,
+  initialObjectId,
+  initialPeriods,
 }: AddServicePeriodModalProps) {
-  const [selectedObjectId, setSelectedObjectId] = useState("");
-  const [periods, setPeriods] = useState<ServicePeriod[]>([
-    {
-      id: `sp-${Date.now()}-0`,
-      objectId: "",
-      start: toISODate(today()),
-      end: toISODate(new Date(today().getTime() + 30 * 86400000)),
-    },
-  ]);
+  const [selectedObjectId, setSelectedObjectId] = useState(initialObjectId || "");
+  const [periods, setPeriods] = useState<ServicePeriod[]>(
+    initialPeriods && initialPeriods.length > 0
+      ? initialPeriods.map((p, i) => ({ ...p, id: p.id || `sp-${Date.now()}-${i}` }))
+      : [{
+          id: `sp-${Date.now()}-0`,
+          objectId: initialObjectId || "",
+          start: toISODate(today()),
+          end: toISODate(new Date(today().getTime() + 30 * 86400000)),
+        }]
+  );
   const [error, setError] = useState("");
 
   const addPeriod = () => {
