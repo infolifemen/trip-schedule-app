@@ -259,7 +259,7 @@ export default function Home() {
       <ErrorBoundary>
         {!loaded && <LoadingBar />}
         {/* Хедер ВСЕГДА рендерится независимо от loaded — чтобы не было "появляется через раз" */}
-        <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 1000 }}>
+        <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 20 }}>
           <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onAddServicePeriod={() => setShowServicePeriodModal(true)} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
         </div>
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
