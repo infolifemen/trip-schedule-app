@@ -9,9 +9,10 @@ interface TimelineProps {
   archivedIds?: string[]; showArchived?: boolean; onSelectTrip?: (trip: Trip) => void; onAddVacation?: () => void;
   onDeleteVacation?: (vacationId: string) => void; onEditVacation?: (vacation: Vacation) => void; onAddTraining?: () => void;
   onDeleteTraining?: (trainingId: string) => void; onEditTraining?: (training: Training) => void;
+  onEditServicePeriod?: (objectId: string) => void;
 }
 
-const PX_PER_DAY = 20; const ROW_HEIGHT = 32; const LEFT_COL_WIDTH = 220; const HEADER_HEIGHT = 56;
+const PX_PER_DAY = 20; const ROW_HEIGHT = 32; const LEFT_COL_WIDTH = 150; const HEADER_HEIGHT = 56;
 const TRIP_BAR_COLOR = "#2563eb"; const TRIP_BAR_HOVER = "#1d4ed8"; const MARKER_START_COLOR = "#16a34a"; const MARKER_END_COLOR = "#dc2626";
 const BG = "#f0eeeb"; const CARD_BG = "rgba(255,255,255,0.98)"; const BORDER = "rgba(0,0,0,0.06)"; const TEXT_DIM = "#5a5a72"; const TEXT_BRIGHT = "#1a1a2e";
 const ARCHIVED_BG = "rgba(245,158,11,0.06)"; const VACATION_GLASS = "rgba(245, 158, 11, 0.25)"; const TRAINING_BAR_COLOR = "#8b5cf6";
@@ -141,7 +142,7 @@ const GridOverlay = memo(function GridOverlay({
   );
 });
 
-export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining }: TimelineProps) {
+export function Timeline({ specialists, trips, servicePeriods = [], vacations = [], trainings = [], archivedIds = [], showArchived = false, onSelectTrip, onAddVacation, onDeleteVacation, onEditVacation, onAddTraining, onDeleteTraining, onEditTraining, onEditServicePeriod }: TimelineProps) {
   const today_date = useMemo(() => today(), []);
   const objects = useMemo(() => groupTripsByObject(trips), [trips]);
   const enrichedObjects = useMemo(() => objects.map((obj) => { const objPeriods = servicePeriods.filter((p) => p.objectId === obj.id); return { ...obj, servicePeriods: objPeriods, archived: archivedIds.includes(obj.id) }; }), [objects, servicePeriods, archivedIds]);
@@ -193,8 +194,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", gap: 8, background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1, cursor: "default" }} onMouseEnter={(e) => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setTooltipObj(obj); setTooltipPos({ top: rect.top, left: rect.right }); }} onMouseLeave={() => setTooltipObj(null)}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_BRIGHT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obj.city} — {obj.purpose}</div>
-            {obj.equipment && <div style={{ fontSize: 9, color: TEXT_DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{obj.equipment}</div>}
+            <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_BRIGHT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obj.city}</div>
+            {(obj.purpose || obj.equipment) && <div style={{ fontSize: 9, color: TEXT_DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{[obj.purpose, obj.equipment].filter(Boolean).join(" · ")}</div>}
           </div>
         </div>
       );
@@ -202,14 +203,12 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key="training" style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", background: "rgba(139,92,246,0.04)", borderLeft: "3px solid #8b5cf6", gap: 8 }}>
           <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#8b5cf6" }}>📚 Обучение</div>
-          {onAddTraining && <button onClick={onAddTraining} style={{ padding: "3px 8px", background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, color: "#8b5cf6", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Добавить</button>}
         </div>
       );
     } else if (row.type === "vacation") {
       return (
         <div key="vacation" style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", background: "rgba(245,158,11,0.04)", borderLeft: "3px solid #f59e0b", gap: 8 }}>
           <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: "#f59e0b" }}>🌴 Отпуска</div>
-          {onAddVacation && <button onClick={onAddVacation} style={{ padding: "3px 8px", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, color: "#f59e0b", fontSize: 10, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>+ Добавить</button>}
         </div>
       );
     }
@@ -223,7 +222,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       const tripBars = sortedTrips.map(trip => { const tStart = parseDate(trip.start); const tEnd = parseDate(trip.end); const left = diffDays(range.start, tStart) * PX_PER_DAY; const width = (diffDays(tStart, tEnd) + 1) * PX_PER_DAY; const names = trip.specialistIds.map(id => specialists.find(s => s.id === id)?.name || id); return { trip, left, width, names }; });
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, position: "relative", background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1 }}>
-          {/* === СЛОЙ 1 (z-2): ТОЛЬКО стеклянная полоса периода услуг === */}
+          {/* === СЛОЙ 1 (z-2): Стеклянная полоса периода услуг (кликабельная для редактирования) === */}
           {objPeriods.map((period, pi) => {
             const pStart = parseDate(period.start); const pEnd = parseDate(period.end);
             const startLeft = diffDays(range.start, pStart) * PX_PER_DAY;
@@ -231,7 +230,13 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
             if (startLeft + width < 0 || startLeft > totalWidth) return null;
             return (
               <div key={`sp-glass-${pi}`} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, pointerEvents: "none", zIndex: 2 }}>
-                <div style={{ position: "absolute", top: 4, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 8, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)" }} />
+                <div
+                  onClick={() => { if (onEditServicePeriod) onEditServicePeriod(obj.id); }}
+                  style={{ position: "absolute", top: 4, left: Math.max(startLeft, 0), width: Math.max(width - 2, PX_PER_DAY), height: ROW_HEIGHT - 8, background: "rgba(37,99,235,0.12)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)", border: "1px solid rgba(37,99,235,0.25)", borderRadius: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.3)", cursor: "pointer", pointerEvents: "auto", transition: "all 0.15s ease" }}
+                  onMouseEnter={(e) => { (e.currentTarget).style.background = "rgba(37,99,235,0.22)"; (e.currentTarget).style.borderColor = "rgba(37,99,235,0.5)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget).style.background = "rgba(37,99,235,0.12)"; (e.currentTarget).style.borderColor = "rgba(37,99,235,0.25)"; }}
+                  title="Клик — изменить период оказания услуг"
+                />
               </div>
             );
           })}
@@ -315,7 +320,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
           {/* zIndex: 30 — выше fixed тулбара (z-20), столбца объектов (z-25) и плашек (z-22). Строка дат НАЕЗЖАЕТ на всё, закрывая и тулбар, и столбец, и плашки. top: 0 — прилипает к самому верху viewport. */}
           <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
-            <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект — Вид работ"}</div>
+            <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
               <div style={{ height: 28, position: "relative" }}>{months.map((m, i) => <div key={i} data-testid={`monthcell-${i}`} style={{ position: "absolute", top: 0, left: m.left, width: m.width, height: 28, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 600, color: TEXT_DIM }}>{m.label}</div>)}</div>

@@ -87,6 +87,7 @@ export default function Home() {
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
   const [editingTraining, setEditingTraining] = useState<Training | null>(null);
+  const [editingServicePeriodObjectId, setEditingServicePeriodObjectId] = useState<string | null>(null);
   const [viewingTrip, setViewingTrip] = useState<Trip | null>(null);
 
   // === FIXED HEADER HEIGHT: измеряем высоту fixed тулбара для spacer'а ===
@@ -247,6 +248,7 @@ export default function Home() {
 
   const handleEditVacation = useCallback((vacation: Vacation) => { setEditingVacation(vacation); setShowVacationModal(true); }, []);
   const handleEditTraining = useCallback((training: Training) => { setEditingTraining(training); setShowTrainingModal(true); }, []);
+  const handleEditServicePeriod = useCallback((objectId: string) => { setEditingServicePeriodObjectId(objectId); setShowServicePeriodModal(true); }, []);
 
   const handleArchive = useCallback((ids: string[]) => { const newArchivedIds = Array.from(new Set([...archivedIds, ...ids])); saveArchivedIds(newArchivedIds); setData(prev => ({ ...prev, archivedIds: newArchivedIds })); }, [archivedIds]);
   const handleUnarchive = useCallback((ids: string[]) => { const idSet = new Set(ids); const newArchivedIds = archivedIds.filter(id => !idSet.has(id)); saveArchivedIds(newArchivedIds); setData(prev => ({ ...prev, archivedIds: newArchivedIds })); }, [archivedIds]);
@@ -260,14 +262,14 @@ export default function Home() {
         {!loaded && <LoadingBar />}
         {/* Хедер ВСЕГДА рендерится независимо от loaded — чтобы не было "появляется через раз" */}
         <div ref={headerRef} style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 20 }}>
-          <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onAddServicePeriod={() => setShowServicePeriodModal(true)} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
+          <Header onAddTrip={() => { setEditingTrip(null); setShowAddModal(true); }} onAddServicePeriod={() => setShowServicePeriodModal(true)} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onArchiveClick={() => setShowArchiveModal(true)} showArchived={showArchived} onToggleArchived={() => setShowArchived(!showArchived)} tripCount={data.trips.length} specialistCount={data.specialists.length} archivedCount={archivedCount} specialists={data.specialists} selectedSpecialist={selectedSpecialist} onSelectSpecialist={setSelectedSpecialist} tripCountBySpecialist={tripCountBySpecialist} />
         </div>
         {loaded && <div style={{ display: "flex", flexDirection: "column", background: "#f0eeeb", minHeight: "100vh" }}>
           {/* Spacer высотой с fixed тулбар — чтобы первые строки Timeline не прятались под ним при первом рендере */}
           <div style={{ height: headerHeight, flexShrink: 0 }} />
-          <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} />
+          <Timeline specialists={visibleSpecialists} trips={filteredTrips} servicePeriods={data.servicePeriods || []} vacations={filteredVacations} trainings={filteredTrainings} archivedIds={archivedIds} showArchived={showArchived} onSelectTrip={setViewingTrip} onAddVacation={() => { setEditingVacation(null); setShowVacationModal(true); }} onDeleteVacation={handleDeleteVacation} onEditVacation={handleEditVacation} onAddTraining={() => { setEditingTraining(null); setShowTrainingModal(true); }} onDeleteTraining={handleDeleteTraining} onEditTraining={handleEditTraining} onEditServicePeriod={handleEditServicePeriod} />
           {showAddModal && <AddTripModal specialists={data.specialists} existingObjects={existingObjects} initialTrip={editingTrip} initialServicePeriods={editingServicePeriods} onSave={handleSaveTrip} onClose={() => { setShowAddModal(false); setEditingTrip(null); }} />}
-          {showServicePeriodModal && <AddServicePeriodModal existingObjects={existingObjects} onSave={handleSaveServicePeriods} onClose={() => setShowServicePeriodModal(false)} />}
+          {showServicePeriodModal && <AddServicePeriodModal existingObjects={existingObjects} onSave={handleSaveServicePeriods} onClose={() => { setShowServicePeriodModal(false); setEditingServicePeriodObjectId(null); }} initialObjectId={editingServicePeriodObjectId || undefined} initialPeriods={editingServicePeriodObjectId ? (data.servicePeriods || []).filter(p => p.objectId === editingServicePeriodObjectId) : undefined} />}
           {showVacationModal && <AddVacationModal specialists={data.specialists} initialVacation={editingVacation} onSave={handleSaveVacation} onClose={() => { setShowVacationModal(false); setEditingVacation(null); }} />}
           {showTrainingModal && <AddTrainingModal specialists={data.specialists} initialTraining={editingTraining} onSave={handleSaveTraining} onClose={() => { setShowTrainingModal(false); setEditingTraining(null); }} />}
           {showArchiveModal && <ArchiveModal objects={allObjects} archivedIds={archivedIds} onArchive={handleArchive} onUnarchive={handleUnarchive} onClose={() => setShowArchiveModal(false)} />}
