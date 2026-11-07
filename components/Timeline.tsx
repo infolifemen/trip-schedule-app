@@ -12,7 +12,7 @@ interface TimelineProps {
   onEditServicePeriod?: (objectId: string) => void;
 }
 
-const PX_PER_DAY = 20; const ROW_HEIGHT = 32; const LEFT_COL_WIDTH = 150; const HEADER_HEIGHT = 56;
+const PX_PER_DAY = 20; const ROW_HEIGHT = 32; const LEFT_COL_MIN = 100; const LEFT_COL_MAX = 320; const LEFT_COL_PADDING = 36; const HEADER_HEIGHT = 56;
 const TRIP_BAR_COLOR = "#2563eb"; const TRIP_BAR_HOVER = "#1d4ed8"; const MARKER_START_COLOR = "#16a34a"; const MARKER_END_COLOR = "#dc2626";
 const BG = "#f0eeeb"; const CARD_BG = "rgba(255,255,255,0.98)"; const BORDER = "rgba(0,0,0,0.06)"; const TEXT_DIM = "#5a5a72"; const TEXT_BRIGHT = "#1a1a2e";
 const ARCHIVED_BG = "rgba(245,158,11,0.06)"; const VACATION_GLASS = "rgba(245, 158, 11, 0.25)"; const TRAINING_BAR_COLOR = "#8b5cf6";
@@ -178,6 +178,27 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   const days = useMemo(() => Array.from({ length: range.totalDays }, (_, i) => addDays(range.start, i)), [range]);
   const todayOffset = useMemo(() => { const daysFromStart = diffDays(range.start, today_date); if (daysFromStart < 0 || daysFromStart > range.totalDays) return null; return daysFromStart * PX_PER_DAY; }, [range, today_date]);
 
+  // Dynamic left column width: depends on longest object name (no wrapping)
+  const leftColWidth = useMemo(() => {
+    if (typeof document === 'undefined') return LEFT_COL_MIN;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return LEFT_COL_MIN;
+    ctx.font = '500 12px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    let maxW = 0;
+    for (const obj of visibleObjects) {
+      const w = ctx.measureText(obj.city || '').width;
+      if (w > maxW) maxW = w;
+    }
+    // Labels in non-object rows
+    ctx.font = '600 12px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    for (const label of ['📚 Обучение', '🌴 Отпуска']) {
+      const w = ctx.measureText(label).width;
+      if (w > maxW) maxW = w;
+    }
+    return Math.max(LEFT_COL_MIN, Math.min(LEFT_COL_MAX, Math.ceil(maxW) + LEFT_COL_PADDING));
+  }, [visibleObjects]);
+
   // Авто-скролл к сегодняшнему дню — через window (страница скроллится целиком, не внутри container)
   useEffect(() => { if (todayOffset !== null) { const scrollLeft = Math.max(0, todayOffset - window.innerWidth / 3); window.scrollTo({ left: scrollLeft, behavior: "smooth" }); } }, [todayOffset]);
 
@@ -194,8 +215,8 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
       return (
         <div key={obj.id} style={{ height: ROW_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", gap: 8, background: showArchived ? ARCHIVED_BG : (idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)"), opacity: showArchived ? 0.8 : 1, cursor: "default" }} onMouseEnter={(e) => { const rect = (e.currentTarget as HTMLElement).getBoundingClientRect(); setTooltipObj(obj); setTooltipPos({ top: rect.top, left: rect.right }); }} onMouseLeave={() => setTooltipObj(null)}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: TEXT_BRIGHT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obj.city}</div>
-            {(obj.purpose || obj.equipment) && <div style={{ fontSize: 9, color: TEXT_DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{[obj.purpose, obj.equipment].filter(Boolean).join(" · ")}</div>}
+            <div style={{ fontSize: 12, fontWeight: 500, color: TEXT_BRIGHT, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{obj.city}</div>
+            {(obj.purpose || obj.equipment) && <div style={{ fontSize: 11, color: TEXT_DIM, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginTop: 1 }}>{[obj.purpose, obj.equipment].filter(Boolean).join(" · ")}</div>}
           </div>
         </div>
       );
@@ -317,10 +338,10 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
   return (
     <div style={{ background: BG, position: "relative", fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {tooltipObj && <ObjectTooltip obj={tooltipObj} servicePeriods={servicePeriods} position={tooltipPos} />}
-      <div style={{ minWidth: LEFT_COL_WIDTH + totalWidth }}>
+      <div style={{ minWidth: leftColWidth + totalWidth }}>
           {/* zIndex: 30 — выше fixed тулбара (z-20), столбца объектов (z-25) и плашек (z-22). Строка дат НАЕЗЖАЕТ на всё, закрывая и тулбар, и столбец, и плашки. top: 0 — прилипает к самому верху viewport. */}
           <div style={{ position: "sticky", top: 0, zIndex: 30, display: "flex", height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, background: "rgba(255,255,255,0.98)" }}>
-            <div style={{ position: "sticky", left: 0, zIndex: 35, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 10, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект"}</div>
+            <div style={{ position: "sticky", left: 0, zIndex: 35, width: leftColWidth, minWidth: leftColWidth, height: HEADER_HEIGHT, borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", padding: "0 12px", fontSize: 11, fontWeight: 600, color: TEXT_DIM, letterSpacing: "0.5px", textTransform: "uppercase", background: "rgba(255,255,255,0.98)" }}>{showArchived ? "📦 Архив — Объект" : "Объект"}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={false} showMonthLines={true} showWeekend={true} />
               <div style={{ height: 28, position: "relative" }}>{months.map((m, i) => <div key={i} data-testid={`monthcell-${i}`} style={{ position: "absolute", top: 0, left: m.left, width: m.width, height: 28, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 11, fontWeight: 600, color: TEXT_DIM }}>{m.label}</div>)}</div>
@@ -330,7 +351,7 @@ export function Timeline({ specialists, trips, servicePeriods = [], vacations = 
           {/* zIndex: 22 — ВЫШЕ fixed тулбара (z-20), но НИЖЕ строки дат (z-30) и столбца объектов (z-25). При вертикальной прокрутке плашки командировок заезжают НА тулбар (22 > 20), а столбец (z-25) и строка дат (z-30) остаются поверх. position: relative создаёт stacking context для корректной работы z-index детей. */}
           <div style={{ display: "flex", position: "relative", zIndex: 22 }}>
             {/* zIndex: 25 — ВЫШЕ плашек (z-22) и тулбара (z-20), но НИЖЕ строки дат (z-30). Столбец объектов заезжает НА тулбар и НА плашки, но ПОД строку дат при вертикальной прокрутке. left:0 + top:0 — не уезжает ни горизонтально, ни вертикально. */}
-            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 25, width: LEFT_COL_WIDTH, minWidth: LEFT_COL_WIDTH, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
+            <div style={{ position: "sticky", left: 0, top: 0, zIndex: 25, width: leftColWidth, minWidth: leftColWidth, background: CARD_BG, borderRight: `1px solid ${BORDER}` }}>{rows.map((row, idx) => renderLeftRow(row, idx))}</div>
             <div style={{ width: totalWidth, position: "relative" }}>
               <GridOverlay totalDays={range.totalDays} px={PX_PER_DAY} months={months} rangeStart={range.start} showDayLines={true} showMonthLines={true} showWeekend={true} />
               {todayOffset !== null && <div style={{ position: "absolute", top: 0, bottom: 0, left: todayOffset, width: 2, background: "#2563eb", zIndex: 8, pointerEvents: "none" }}><div style={{ position: "absolute", top: -6, left: -4, width: 10, height: 10, borderRadius: "50%", background: "#2563eb", boxShadow: "0 0 8px rgba(37,99,235,0.4)" }} /></div>}
